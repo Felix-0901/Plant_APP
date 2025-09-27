@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
 class AppConfig {
-  // 既有：auth
+  // Auth / Password
   static const String baseUrl = 'http://35.189.162.86/Max_plant/auth.php';
-  // 新增：password reset
   static const String pswBaseUrl = 'http://35.189.162.86/Max_plant/psw_setting.php';
+
+  // NEW: Home / Plant
+  static const String homepageBaseUrl = 'http://35.189.162.86/Max_plant/homepage_setting.php';
+  static const String plantBaseUrl = 'http://35.189.162.86/Max_plant/plant_setting.php';
 }
 
 class AppText {
@@ -12,5 +15,5 @@ class AppText {
 }
 
 class AppColors {
-  static const primaryYellow = Color(0xFFFFD54F); // warm yellow
+  static const primaryYellow = Color(0xFFFFD54F); // 溫和黃
 }
