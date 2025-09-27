@@ -4,6 +4,7 @@ import '../services/api_service.dart';
 import '../utils/session.dart';
 import '../utils/tools.dart';
 import '../widgets/custom_button.dart';
+import '../utils/nav.dart'; // for shared routeObserver
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -12,7 +13,8 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage>
+    with RouteAware, WidgetsBindingObserver {
   // 公告
   List<Map<String, dynamic>> _ann = [];
   bool _annLoaded = false;
@@ -24,11 +26,40 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadAll();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      routeObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    _loadAll();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadAll();
+    }
+  }
+
   Future<void> _loadAll() async {
-    // 1) 公告
+    // 1) 抓公告
     try {
       final anns = await ApiService.searchAnnouncements();
       setState(() {
@@ -40,7 +71,7 @@ class _HomePageState extends State<HomePage> {
       setState(() => _annLoaded = true);
     }
 
-    // 2) 植物列表（用登入時儲存的 email）
+    // 2) 抓植物資料
     try {
       final email = Session.email;
       if (email == null || email.isEmpty) return;
@@ -56,7 +87,8 @@ class _HomePageState extends State<HomePage> {
         if (name.isEmpty) continue;
 
         final initStr = (p['initialization'] ?? '').toString();
-        final initDate = parseYmd(initStr);
+        final initDate = _parseYmdFlexible(initStr);
+
         if (initDate == null) {
           tooLong.add(name);
           continue;
@@ -97,23 +129,40 @@ class _HomePageState extends State<HomePage> {
     Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
   }
 
-  // 可選：偵測目前滑動區域（console 觀察）
-  bool _onAnnouncementsScroll(ScrollNotification n) {
-    // ignore: avoid_print
-    // print('Scrolling: announcements offset=${n.metrics.pixels}');
-    return false; // 不攔截，讓預設行為繼續
-  }
+  bool _onAnnouncementsScroll(ScrollNotification n) => false;
+  bool _onBottomListScroll(ScrollNotification n) => false;
 
-  bool _onBottomListScroll(ScrollNotification n) {
-    // ignore: avoid_print
-    // print('Scrolling: bottom list offset=${n.metrics.pixels}');
-    return false;
+  DateTime? _parseYmdFlexible(String s) {
+    if (s.isEmpty) return null;
+    s = s.trim();
+
+    final iso = DateTime.tryParse(s);
+    if (iso != null) {
+      return DateTime(iso.year, iso.month, iso.day);
+    }
+
+    final digits8 = RegExp(r'^\d{8}$');
+    if (digits8.hasMatch(s)) {
+      final y = int.parse(s.substring(0, 4));
+      final m = int.parse(s.substring(4, 6));
+      final d = int.parse(s.substring(6, 8));
+      return DateTime(y, m, d);
+    }
+
+    final m = RegExp(r'^(\d{4})\D(\d{1,2})\D(\d{1,2})').firstMatch(s);
+    if (m != null) {
+      final y = int.parse(m.group(1)!);
+      final mm = int.parse(m.group(2)!);
+      final dd = int.parse(m.group(3)!);
+      return DateTime(y, mm, dd);
+    }
+
+    return null;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // AppBar：左上角登出 icon、標題 Plant（黑字粗體）
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.logout, color: Colors.black),
@@ -132,11 +181,9 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ),
-
-      // 版面：上半（公告+按鈕）固定；下半（第3/4區）才可滑動 & 下拉刷新
       body: Column(
         children: [
-          // ====== 上半：公告（獨立可滑動） ======
+          // 公告區
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
             child: ConstrainedBox(
@@ -160,24 +207,27 @@ class _HomePageState extends State<HomePage> {
                         child: ListView.separated(
                           padding: const EdgeInsets.all(12),
                           itemCount: _ann.length,
-                          separatorBuilder: (_, __) => const Divider(height: 16),
+                          separatorBuilder: (_, __) =>
+                              const Divider(height: 16),
                           itemBuilder: (context, i) {
                             final m = _ann[i];
                             final title = (m['title'] ?? '').toString();
                             final date = (m['date'] ?? '').toString();
                             final content = (m['content'] ?? '').toString();
-
                             return ListTile(
                               contentPadding: EdgeInsets.zero,
                               title: Text(
                                 title,
-                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black),
                               ),
                               subtitle: Padding(
                                 padding: const EdgeInsets.only(top: 4),
                                 child: Text(
                                   date,
-                                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                                  style: const TextStyle(
+                                      fontSize: 12, color: Colors.black54),
                                 ),
                               ),
                               onTap: () => showAnnouncementDialog(
@@ -200,7 +250,7 @@ class _HomePageState extends State<HomePage> {
             child: Divider(height: 24),
           ),
 
-          // ====== 上半固定：前往溫室按鈕 ======
+          // 前往溫室按鈕
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: ConstrainedBox(
@@ -214,7 +264,7 @@ class _HomePageState extends State<HomePage> {
 
           const SizedBox(height: 20),
 
-          // ====== 下半：第3/4區塊（可滑動 + 下拉刷新） ======
+          // 下半部：整體可捲動
           Expanded(
             child: RefreshIndicator(
               onRefresh: _loadAll,
@@ -226,7 +276,7 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 560),
-                      child: _PlantListSection(
+                      child: _AutoHeightSection(
                         title: 'Not cared today',
                         names: _notCaredToday,
                       ),
@@ -234,7 +284,7 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(height: 12),
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 560),
-                      child: _PlantListSection(
+                      child: _AutoHeightSection(
                         title: 'Not cared for too long',
                         names: _notCaredTooLong,
                       ),
@@ -250,11 +300,15 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// 植物列表區塊（只顯示名稱；跟隨下半 ListView 一起捲動）
-class _PlantListSection extends StatelessWidget {
+/// 自動高度區塊（不可內捲動）
+class _AutoHeightSection extends StatelessWidget {
   final String title;
   final List<String> names;
-  const _PlantListSection({required this.title, required this.names});
+
+  const _AutoHeightSection({
+    required this.title,
+    required this.names,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -268,21 +322,63 @@ class _PlantListSection extends StatelessWidget {
           children: [
             Text(
               title,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: Colors.black),
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                color: Colors.black,
+              ),
             ),
             const SizedBox(height: 8),
             if (names.isEmpty)
               const Text('None', style: TextStyle(color: Colors.black54))
             else
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: names.length,
-                separatorBuilder: (_, __) => const Divider(height: 12),
-                itemBuilder: (_, i) => Text(names[i]),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (int i = 0; i < names.length; i++) ...[
+                    _PlantTile(name: names[i]),
+                    if (i != names.length - 1) const SizedBox(height: 8),
+                  ]
+                ],
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 單一植物子區塊
+class _PlantTile extends StatelessWidget {
+  final String name;
+  const _PlantTile({required this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity, // 撐滿寬度
+      alignment: Alignment.centerLeft, // 靠左
+      padding: const EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: 14,
+      ),
+      constraints: const BoxConstraints(minHeight: 50), // 比較高
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.black12),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        name,
+        textAlign: TextAlign.left,
+        style: const TextStyle(color: Colors.black),
       ),
     );
   }

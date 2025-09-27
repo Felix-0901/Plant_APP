@@ -5,6 +5,7 @@ import 'pages/signup_page.dart';
 import 'pages/home_page.dart';
 import 'pages/greenhouse_page.dart';
 import 'pages/launch_gate.dart';
+import 'utils/nav.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -58,6 +59,7 @@ class MyApp extends StatelessWidget {
         '/home': (_) => const HomePage(),
         '/greenhouse': (_) => const GreenhousePage(),
       },
+      navigatorObservers: [routeObserver],
     );
   }
 }

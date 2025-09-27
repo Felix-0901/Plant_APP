@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/session.dart';
 import '../utils/tools.dart';
+import 'package:url_launcher/url_launcher.dart'; // ← 用於開啟外部連結
 
 class PlantCreateSheet extends StatefulWidget {
   const PlantCreateSheet({super.key});
@@ -17,6 +18,9 @@ class _PlantCreateSheetState extends State<PlantCreateSheet> {
   final _name = TextEditingController();
   String _state = 'seedling'; // 預設值
   bool _loading = false;
+
+  static final Uri _plantNetUrl =
+      Uri.parse('https://identify.plantnet.org/zh-tw');
 
   @override
   void dispose() {
@@ -45,7 +49,6 @@ class _PlantCreateSheetState extends State<PlantCreateSheet> {
         email: email,
       );
 
-      // 成功：直接關閉並回傳 true
       // ignore: avoid_print
       print('Create plant => $data');
       if (!mounted) return;
@@ -54,6 +57,15 @@ class _PlantCreateSheetState extends State<PlantCreateSheet> {
       await showAlert(context, e.toString(), title: 'Create Failed');
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _openPlantNet() async {
+    final ok = await launchUrl(_plantNetUrl, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to open link')),
+      );
     }
   }
 
@@ -71,7 +83,8 @@ class _PlantCreateSheetState extends State<PlantCreateSheet> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Create Plant', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                const Text('Create Plant',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 20),
 
                 // Plant variety
@@ -82,8 +95,34 @@ class _PlantCreateSheetState extends State<PlantCreateSheet> {
                     border: OutlineInputBorder(),
                     contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                   ),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter variety' : null,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Please enter variety' : null,
                 ),
+
+                // 與上方輸入框保留一點距離
+                const SizedBox(height: 4),
+
+                // 🔗 小小文字按鈕：右下角
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: _openPlantNet,
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(0, 0),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text(
+                      'Identify plant by photo',
+                      style: TextStyle(
+                        fontSize: 12, // 小字
+                        color: Colors.blueGrey, // 淡灰藍色
+                        decoration: TextDecoration.none, // ❌ 移除底線
+                      ),
+                    ),
+                  ),
+                ),
+
                 const SizedBox(height: 16),
 
                 // Plant name
@@ -94,11 +133,12 @@ class _PlantCreateSheetState extends State<PlantCreateSheet> {
                     border: OutlineInputBorder(),
                     contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                   ),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter name' : null,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Please enter name' : null,
                 ),
                 const SizedBox(height: 16),
 
-                // Plant state (dropdown) —— 高度、寬度、文字顏色和 TextFormField 一致
+                // Plant state
                 DropdownButtonFormField<String>(
                   value: _state,
                   onChanged: (v) => setState(() => _state = v ?? _state),
@@ -112,12 +152,9 @@ class _PlantCreateSheetState extends State<PlantCreateSheet> {
                     border: OutlineInputBorder(),
                     contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                   ),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: Colors.black, // ✅ 文字顏色和 TextFormField 一樣
-                  ),
-                  dropdownColor: Colors.white, // ✅ 下拉背景白色
-                  isDense: true, // ✅ 保持標準高度
+                  style: const TextStyle(fontSize: 16, color: Colors.black),
+                  dropdownColor: Colors.white,
+                  isDense: true,
                 ),
                 const SizedBox(height: 20),
 
@@ -128,7 +165,10 @@ class _PlantCreateSheetState extends State<PlantCreateSheet> {
                   child: ElevatedButton(
                     onPressed: _loading ? null : _submit,
                     child: _loading
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2))
                         : const Text('Submit'),
                   ),
                 ),

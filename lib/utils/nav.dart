@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 Route<T> slideFromRight<T>(Widget page, {Duration duration = const Duration(milliseconds: 280)}) {
   return PageRouteBuilder<T>(
@@ -25,3 +26,5 @@ Route<T> slideFromLeft<T>(Widget page, {Duration duration = const Duration(milli
     },
   );
 }
+
+final RouteObserver<PageRoute<dynamic>> routeObserver = RouteObserver<PageRoute<dynamic>>();
