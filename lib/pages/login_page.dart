@@ -33,11 +33,15 @@ class _LoginPageState extends State<LoginPage> {
         email: _email.text.trim(),
         password: _password.text,
       );
-      showSnack(context, res['message']?.toString() ?? '登入成功');
+      // 成功：直接進主頁（不彈匡）
+      // 可視需要保存 email/token
+      // ignore: avoid_print
+      print('Login OK => $res');
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
-      showSnack(context, e.toString());
+      // 失敗：顯示伺服器 message（有 OK 鈕）
+      await showAlert(context, e.toString(), title: '登入失敗');
     } finally {
       if (mounted) setState(() => _loading = false);
     }

@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AppConfig {
-  // TODO: 換成你實際的 API 網址
-  static const String baseUrl = 'https://your-api.com';
+  static const String baseUrl = 'http://35.189.162.86/Max_plant/auth.php';
 }
 
 class AppText {
