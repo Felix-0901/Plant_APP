@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart'; // <-- for CupertinoPageRoute
 import '../config/constants.dart';
 import '../services/api_service.dart';
 import '../utils/tools.dart';
 import '../utils/session.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
+import 'signup_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -46,7 +48,6 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  // Prompt dialog with TextField to input email
   Future<String?> _promptEmail() async {
     final controller = TextEditingController(text: _email.text.trim());
     String? errorText;
@@ -68,10 +69,7 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(null),
-                  child: const Text('Cancel'),
-                ),
+                TextButton(onPressed: () => Navigator.of(ctx).pop(null), child: const Text('Cancel')),
                 TextButton(
                   onPressed: () {
                     final value = controller.text.trim();
@@ -97,7 +95,7 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _onForgotPassword() async {
     final email = await _promptEmail();
-    if (email == null) return; // user cancelled
+    if (email == null) return;
 
     try {
       final res = await ApiService.forgotPassword(email: email);
@@ -125,11 +123,7 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    'Login',
-                    style: AppText.title,
-                    textAlign: TextAlign.center,
-                  ),
+                  const Text('Login', style: AppText.title, textAlign: TextAlign.center),
                   const SizedBox(height: 32),
                   CustomTextField(
                     controller: _email,
@@ -147,16 +141,17 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 20),
                   CustomButton(text: 'Sign In', onPressed: _onLogin, loading: _loading),
                   const SizedBox(height: 12),
-                  // 🔄 調換順序：Forgot password? 在左，Sign up? 在右
+                  // Left: Forgot password?  |  Right: Sign up? (push with CupertinoPageRoute)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      TextButton(onPressed: _onForgotPassword, child: const Text('Forgot password?')),
                       TextButton(
-                        onPressed: _onForgotPassword,
-                        child: const Text('Forgot password?'),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pushReplacementNamed(context, '/signup'),
+                        onPressed: () {
+                          Navigator.of(context).push(CupertinoPageRoute(
+                            builder: (_) => const SignupPage(),
+                          ));
+                        },
                         child: const Text('Sign up?'),
                       ),
                     ],

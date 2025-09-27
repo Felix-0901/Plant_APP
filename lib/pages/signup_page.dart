@@ -17,7 +17,7 @@ class _SignupPageState extends State<SignupPage> {
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _phone = TextEditingController();
-  final _birthdayCtrl = TextEditingController();
+  final _birthdayCtrl = TextEditingController(); // YYYYMMDD
   final _password = TextEditingController();
   final _confirm = TextEditingController();
   bool _loading = false;
@@ -47,7 +47,7 @@ class _SignupPageState extends State<SignupPage> {
     if (picked != null) {
       setState(() {
         _birthday = picked;
-        _birthdayCtrl.text = ymd(picked);
+        _birthdayCtrl.text = ymd(picked); // YYYYMMDD
       });
     }
   }
@@ -68,10 +68,14 @@ class _SignupPageState extends State<SignupPage> {
         phone: _phone.text.trim(),
         birthday: _birthdayCtrl.text,
       );
-      await showAlert(context, res['message']?.toString() ?? 'Registration successful',
-          title: 'Sign Up Successful');
+      await showAlert(
+        context,
+        res['message']?.toString() ?? 'Registration successful',
+        title: 'Sign Up Successful',
+      );
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, '/login');
+      // ✅ Right-slide back to Login by popping (reverse of Cupertino push)
+      Navigator.of(context).pop();
     } catch (e) {
       await showAlert(context, e.toString(), title: 'Sign Up Failed');
     } finally {
@@ -93,11 +97,7 @@ class _SignupPageState extends State<SignupPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    'Sign Up',
-                    style: AppText.title,
-                    textAlign: TextAlign.center,
-                  ),
+                  const Text('Sign Up', style: AppText.title, textAlign: TextAlign.center),
                   const SizedBox(height: 32),
                   CustomTextField(
                     controller: _name,
@@ -125,10 +125,7 @@ class _SignupPageState extends State<SignupPage> {
                     validator: (v) => requiredValidator(v, label: 'Birthday'),
                     decoration: InputDecoration(
                       labelText: 'Birthday (YYYYMMDD)',
-                      suffixIcon: IconButton(
-                        onPressed: _pickBirthday,
-                        icon: const Icon(Icons.calendar_today),
-                      ),
+                      suffixIcon: IconButton(onPressed: _pickBirthday, icon: const Icon(Icons.calendar_today)),
                     ),
                     onTap: _pickBirthday,
                   ),
@@ -149,8 +146,9 @@ class _SignupPageState extends State<SignupPage> {
                   const SizedBox(height: 20),
                   CustomButton(text: 'Create Account', onPressed: _onSignup, loading: _loading),
                   const SizedBox(height: 12),
+                  // ✅ “Back to Login” feels like going back → just pop()
                   TextButton(
-                    onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+                    onPressed: () => Navigator.of(context).pop(),
                     child: const Text('Already have an account? Sign in'),
                   ),
                 ],
