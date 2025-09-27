@@ -16,4 +16,5 @@ class AppText {
 
 class AppColors {
   static const primaryYellow = Color(0xFFFFD54F); // 溫和黃
+  static const deepYellow = Color(0xFFFBC02D);    // 深黃
 }

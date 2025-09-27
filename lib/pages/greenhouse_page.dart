@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/session.dart';
 import '../utils/tools.dart';
+import '../config/constants.dart';
 import 'plant_create_sheet.dart';
 
 class GreenhousePage extends StatefulWidget {
@@ -245,7 +246,7 @@ class _PlantCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 第一行：紅/綠點 + 名稱（最大黑字） + 右側天數
+                // 第一行：紅/綠點 + 名稱（最大黑字） + 右側天數（黃色）
                 Row(
                   children: [
                     Container(
@@ -268,7 +269,11 @@ class _PlantCard extends StatelessWidget {
                     ),
                     Text(
                       daysText,
-                      style: const TextStyle(fontSize: 14, color: Colors.black87),
+                      style: const TextStyle(
+                        fontSize: 20, // ✅ 和名稱一樣大
+                        fontWeight: FontWeight.bold, // ✅ 粗體
+                        color: AppColors.deepYellow
+                      ),
                     ),
                   ],
                 ),
