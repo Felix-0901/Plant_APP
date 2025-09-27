@@ -1,6 +1,6 @@
-// lib/pages/home_page.dart
 import 'package:flutter/material.dart';
 import '../config/constants.dart';
+import '../utils/session.dart';
 import '../widgets/custom_button.dart';
 
 class HomePage extends StatelessWidget {
@@ -8,6 +8,7 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final email = Session.email ?? '';
     return Scaffold(
       appBar: AppBar(title: const Text('Home', style: AppText.title)),
       body: Center(
@@ -18,7 +19,7 @@ class HomePage extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text('Welcome back!', style: AppText.title),
+                Text('Welcome${email.isNotEmpty ? ', $email' : '!'}', style: AppText.title),
                 const SizedBox(height: 16),
                 const Text('This is your dashboard. Navigate to features below.'),
                 const SizedBox(height: 24),

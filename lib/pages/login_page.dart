@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../config/constants.dart';
 import '../services/api_service.dart';
 import '../utils/tools.dart';
+import '../utils/session.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 
@@ -33,9 +34,9 @@ class _LoginPageState extends State<LoginPage> {
         email: _email.text.trim(),
         password: _password.text,
       );
-      // Success → go to Home (no dialog)
-      // ignore: avoid_print
-      print('Login OK => $res');
+      final serverEmail = (res['email'] ?? _email.text.trim()).toString();
+      await Session.setEmail(serverEmail);
+
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
@@ -45,7 +46,22 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  // Prompt dialog with TextField to input email
+  Future<void> _onForgotPassword() async {
+    final email = await _promptEmail();
+    if (email == null) return;
+
+    try {
+      final res = await ApiService.forgotPassword(email: email);
+      await showAlert(
+        context,
+        res['message']?.toString() ?? 'A new password has been generated and sent to your email.',
+        title: 'Password Reset',
+      );
+    } catch (e) {
+      await showAlert(context, e.toString(), title: 'Reset Failed');
+    }
+  }
+
   Future<String?> _promptEmail() async {
     final controller = TextEditingController(text: _email.text.trim());
     String? errorText;
@@ -58,27 +74,16 @@ class _LoginPageState extends State<LoginPage> {
           builder: (ctx, setState) {
             return AlertDialog(
               title: const Text('Forgot Password'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: controller,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: InputDecoration(
-                      labelText: 'Email',
-                      errorText: errorText,
-                    ),
-                    onSubmitted: (_) {
-                      // allow submit via keyboard
-                    },
-                  ),
-                ],
+              content: TextField(
+                controller: controller,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                  errorText: errorText,
+                ),
               ),
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(null),
-                  child: const Text('Cancel'),
-                ),
+                TextButton(onPressed: () => Navigator.of(ctx).pop(null), child: const Text('Cancel')),
                 TextButton(
                   onPressed: () {
                     final value = controller.text.trim();
@@ -102,26 +107,10 @@ class _LoginPageState extends State<LoginPage> {
     return result;
   }
 
-  Future<void> _onForgotPassword() async {
-    final email = await _promptEmail();
-    if (email == null) return; // user cancelled
-
-    try {
-      final res = await ApiService.forgotPassword(email: email);
-      await showAlert(
-        context,
-        res['message']?.toString() ?? 'A new password has been generated and sent to your email.',
-        title: 'Password Reset',
-      );
-    } catch (e) {
-      await showAlert(context, e.toString(), title: 'Reset Failed');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Sign In', style: AppText.title)),
+      // No AppBar
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -132,6 +121,12 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const Text(
+                    'Login',
+                    style: AppText.title,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 32),
                   CustomTextField(
                     controller: _email,
                     label: 'Email',
@@ -148,8 +143,6 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 20),
                   CustomButton(text: 'Sign In', onPressed: _onLogin, loading: _loading),
                   const SizedBox(height: 12),
-
-                  // Row with "Sign up?" and "Forgot password?"
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [

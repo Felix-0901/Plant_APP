@@ -17,12 +17,12 @@ class _SignupPageState extends State<SignupPage> {
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _phone = TextEditingController();
-  final _birthdayCtrl = TextEditingController(); // display YYYYMMDD
+  final _birthdayCtrl = TextEditingController();
   final _password = TextEditingController();
   final _confirm = TextEditingController();
   bool _loading = false;
 
-  DateTime? _birthday; // internal date
+  DateTime? _birthday;
 
   @override
   void dispose() {
@@ -47,7 +47,7 @@ class _SignupPageState extends State<SignupPage> {
     if (picked != null) {
       setState(() {
         _birthday = picked;
-        _birthdayCtrl.text = ymd(picked); // YYYYMMDD
+        _birthdayCtrl.text = ymd(picked);
       });
     }
   }
@@ -66,10 +66,10 @@ class _SignupPageState extends State<SignupPage> {
         email: _email.text.trim(),
         password: _password.text,
         phone: _phone.text.trim(),
-        birthday: _birthdayCtrl.text, // YYYYMMDD
+        birthday: _birthdayCtrl.text,
       );
-      // Success → show OK dialog then go back to Sign In
-      await showAlert(context, res['message']?.toString() ?? 'Registration successful', title: 'Sign Up Successful');
+      await showAlert(context, res['message']?.toString() ?? 'Registration successful',
+          title: 'Sign Up Successful');
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/login');
     } catch (e) {
@@ -82,7 +82,7 @@ class _SignupPageState extends State<SignupPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Sign Up', style: AppText.title)),
+      // No AppBar
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -93,6 +93,12 @@ class _SignupPageState extends State<SignupPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const Text(
+                    'Sign Up',
+                    style: AppText.title,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 32),
                   CustomTextField(
                     controller: _name,
                     label: 'Full Name',

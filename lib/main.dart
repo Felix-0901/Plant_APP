@@ -4,6 +4,7 @@ import 'pages/login_page.dart';
 import 'pages/signup_page.dart';
 import 'pages/home_page.dart';
 import 'pages/greenhouse_page.dart';
+import 'pages/launch_gate.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,7 +15,6 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   ThemeData _theme() {
-    // 統一字體 & 按鈕風格
     return ThemeData(
       useMaterial3: true,
       colorSchemeSeed: Colors.yellow,
@@ -50,7 +50,8 @@ class MyApp extends StatelessWidget {
       title: 'Plant',
       debugShowCheckedModeBanner: false,
       theme: _theme(),
-      initialRoute: '/login',
+      // 用 home 進 LaunchGate，判斷要進哪頁
+      home: const LaunchGate(),
       routes: {
         '/login': (_) => const LoginPage(),
         '/signup': (_) => const SignupPage(),
