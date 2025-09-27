@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/session.dart';
 import '../utils/tools.dart';
+import 'plant_create_sheet.dart';
 
 class GreenhousePage extends StatefulWidget {
   const GreenhousePage({super.key});
@@ -42,24 +43,70 @@ class _GreenhousePageState extends State<GreenhousePage> {
     }
   }
 
-  // 今日是否已初始化（true = 綠點 / 已照顧）
-  bool _caredToday(String? initYmd) {
-    final d = parseYmd(initYmd);
-    if (d == null) return false;
-    final today = todayDateOnly();
-    final only = DateTime(d.year, d.month, d.day);
-    return only == today;
+  // ✅ 寬鬆解析：支援 YYYYMMDD / YYYY-MM-DD / YYYY/MM/DD
+  DateTime? parseYmd(String? input) {
+    if (input == null) return null;
+    final s = input.trim();
+    try {
+      if (RegExp(r'^\d{8}$').hasMatch(s)) {
+        // YYYYMMDD
+        final y = int.parse(s.substring(0, 4));
+        final m = int.parse(s.substring(4, 6));
+        final d = int.parse(s.substring(6, 8));
+        return DateTime(y, m, d);
+      }
+      if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(s)) {
+        // YYYY-MM-DD
+        return DateTime.parse(s);
+      }
+      if (RegExp(r'^\d{4}/\d{2}/\d{2}$').hasMatch(s)) {
+        // YYYY/MM/DD -> 轉成 - 再 parse
+        return DateTime.parse(s.replaceAll('/', '-'));
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
   }
 
-  // 照顧天數 = today - setup_time（無法解析回 '-'）
-  String _careDays(String? setupYmd) {
-    final setup = parseYmd(setupYmd);
+  // ✅ 今天的「日期」（去除時分秒）
+  DateTime todayDateOnly() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  // 今日是否已初始化（true = 綠點 / 已照顧）
+  bool _caredToday(String? initDateStr) {
+    final d = parseYmd(initDateStr);
+    if (d == null) return false;
+    final today = todayDateOnly();
+    return DateTime(d.year, d.month, d.day) == today;
+  }
+
+  // 照顧天數 = (today - setup_time).inDays + 1（今天建立即顯示 1）
+  String _careDays(String? setupDateStr) {
+    final setup = parseYmd(setupDateStr);
     if (setup == null) return '-';
     final today = todayDateOnly();
-    final days = today.difference(DateTime(setup.year, setup.month, setup.day)).inDays;
-    final safe = days < 0 ? 0 : days; // 避免負數
-    return '$safe days';
-    // 若你想包含「當天算第 1 天」，可改： return '${safe + 1} days';
+    final diff = today.difference(DateTime(setup.year, setup.month, setup.day)).inDays;
+    final days = (diff < 0 ? 0 : diff) + 1;
+    return '$days days';
+  }
+
+  Future<void> _openCreate() async {
+    final created = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => const PlantCreateSheet(),
+    );
+
+    if (created == true) {
+      await _loadPlants();
+    }
   }
 
   @override
@@ -83,7 +130,7 @@ class _GreenhousePageState extends State<GreenhousePage> {
         onRefresh: _loadPlants,
         child: _loaded
             ? (_plants.isEmpty
-                ? const _EmptyState() // ✅ 空狀態置中且可下拉刷新
+                ? const _EmptyState() // 置中顯示「No plants」
                 : ListView.builder(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(20),
@@ -94,11 +141,11 @@ class _GreenhousePageState extends State<GreenhousePage> {
                       final name = (p['plant_name'] ?? '').toString();
                       final variety = (p['plant_variety'] ?? '').toString();
                       final state = (p['plant_state'] ?? '').toString();
-                      final setupTime = (p['setup_time'] ?? '').toString(); // YYYYMMDD
-                      final init = (p['initialization'] ?? '').toString();   // YYYYMMDD
+                      final setupTime = (p['setup_time'] ?? '').toString();        // 可能是 YYYY-MM-DD
+                      final init = (p['initialization'] ?? '').toString();         // 也一併用寬鬆解析
 
-                      final cared = _caredToday(init);        // 今日是否已初始化
-                      final daysText = _careDays(setupTime);  // 照顧天數
+                      final cared = _caredToday(init);
+                      final daysText = _careDays(setupTime);
 
                       return _PlantCard(
                         name: name,
@@ -107,7 +154,7 @@ class _GreenhousePageState extends State<GreenhousePage> {
                         caredToday: cared,
                         daysText: daysText,
                         onTap: () {
-                          // 預留：之後點擊有功能再補
+                          // 預留：之後點擊卡片的功能
                         },
                       );
                     },
@@ -122,6 +169,12 @@ class _GreenhousePageState extends State<GreenhousePage> {
                 ],
               ),
       ),
+
+      // 右下角：新增植物
+      floatingActionButton: FloatingActionButton(
+        onPressed: _openCreate,
+        child: const Icon(Icons.add),
+      ),
     );
   }
 }
@@ -131,8 +184,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 用 LayoutBuilder + SingleChildScrollView + ConstrainedBox
-    // 讓內容置中，同時保留下拉刷新手勢
+    // 置中顯示 + 保留下拉刷新
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
@@ -160,7 +212,7 @@ class _PlantCard extends StatelessWidget {
   final String variety;
   final String state;
   final bool caredToday; // true=綠點、false=紅點
-  final String daysText; // "12 days" or "-"
+  final String daysText; // "N days" or "-"
   final VoidCallback? onTap;
 
   const _PlantCard({
@@ -196,22 +248,17 @@ class _PlantCard extends StatelessWidget {
                 // 第一行：紅/綠點 + 名稱（最大黑字） + 右側天數
                 Row(
                   children: [
-                    // 左側紅/綠點
                     Container(
                       width: 10,
                       height: 10,
                       margin: const EdgeInsets.only(right: 8),
-                      decoration: BoxDecoration(
-                        color: dotColor,
-                        shape: BoxShape.circle,
-                      ),
+                      decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
                     ),
-                    // 名稱（展開並截斷）
                     Expanded(
                       child: Text(
                         name.isEmpty ? '-' : name,
                         style: const TextStyle(
-                          fontSize: 20, // 名稱最大
+                          fontSize: 20,
                           fontWeight: FontWeight.w700,
                           color: Colors.black,
                         ),
@@ -219,13 +266,9 @@ class _PlantCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    // 右側：照顧天數
                     Text(
                       daysText,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.black87,
-                      ),
+                      style: const TextStyle(fontSize: 14, color: Colors.black87),
                     ),
                   ],
                 ),
