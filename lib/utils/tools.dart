@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-Future<void> showAlert(BuildContext context, String msg, {String title = '提示'}) async {
+Future<void> showAlert(BuildContext context, String msg, {String title = 'Notice'}) async {
   return showDialog<void>(
     context: context,
     builder: (_) => AlertDialog(
@@ -17,28 +17,28 @@ void showSnack(BuildContext context, String msg) {
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 }
 
-String? requiredValidator(String? v, {String label = '此欄位'}) {
-  if (v == null || v.trim().isEmpty) return '$label 為必填';
+String? requiredValidator(String? v, {String label = 'This field'}) {
+  if (v == null || v.trim().isEmpty) return '$label is required';
   return null;
 }
 
 String? emailValidator(String? v) {
-  if (v == null || v.trim().isEmpty) return 'Email 為必填';
+  if (v == null || v.trim().isEmpty) return 'Email is required';
   final ok = RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(v.trim());
-  return ok ? null : 'Email 格式不正確';
+  return ok ? null : 'Invalid email format';
 }
 
 String? passwordValidator(String? v) {
-  if (v == null || v.length < 6) return '密碼至少 6 碼';
+  if (v == null || v.length < 6) return 'Password must be at least 6 characters';
   return null;
 }
 
 String? confirmPasswordValidator(String? v, String original) {
-  if (v == null || v.isEmpty) return '請再次輸入密碼';
-  if (v != original) return '兩次密碼不一致';
+  if (v == null || v.isEmpty) return 'Please confirm your password';
+  if (v != original) return 'Passwords do not match';
   return null;
 }
 
-// 簡單把 DateTime 轉 YYYYMMDD
+// YYYYMMDD (no separators)
 String ymd(DateTime d) =>
     '${d.year.toString().padLeft(4, '0')}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}';

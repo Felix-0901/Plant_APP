@@ -1,14 +1,8 @@
-// lib/pages/greenhouse_page.dart
 import 'package:flutter/material.dart';
 import '../config/constants.dart';
-// 將來要連線時再打開：
-// import '../services/api_service.dart';
 
 class GreenhousePage extends StatelessWidget {
   const GreenhousePage({super.key});
-
-  // 先用本地假資料；將來要連線時改用 ApiService.greenhouseStats()
-  // Future<Map<String, dynamic>> _load() => ApiService.greenhouseStats();
 
   static const Map<String, dynamic> _demo = {
     'temperature': 24.8,
@@ -24,7 +18,7 @@ class GreenhousePage extends StatelessWidget {
     final light = data['light']?.toString() ?? '--';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('溫室狀態', style: AppText.title)),
+      appBar: AppBar(title: const Text('Greenhouse', style: AppText.title)),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Center(
@@ -38,14 +32,14 @@ class GreenhousePage extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('目前數值', style: AppText.title),
+                    const Text('Current Readings', style: AppText.title),
                     const SizedBox(height: 16),
-                    _RowItem(label: '溫度 (°C)', value: temp),
-                    _RowItem(label: '濕度 (%)', value: humi),
-                    _RowItem(label: '光照 (lux)', value: light),
+                    _RowItem(label: 'Temperature (°C)', value: temp),
+                    _RowItem(label: 'Humidity (%)', value: humi),
+                    _RowItem(label: 'Light (lux)', value: light),
                     const SizedBox(height: 16),
                     const Text(
-                      '（目前為示意數據，尚未串接 API）',
+                      '(Demo data for now. API not connected.)',
                       style: TextStyle(fontSize: 12, color: Colors.black54),
                     ),
                   ],

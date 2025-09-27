@@ -33,15 +33,14 @@ class _LoginPageState extends State<LoginPage> {
         email: _email.text.trim(),
         password: _password.text,
       );
-      // 成功：直接進主頁（不彈匡）
-      // 可視需要保存 email/token
+      // Success → go to Home (no dialog)
       // ignore: avoid_print
       print('Login OK => $res');
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
-      // 失敗：顯示伺服器 message（有 OK 鈕）
-      await showAlert(context, e.toString(), title: '登入失敗');
+      // Failure → show error dialog from server message
+      await showAlert(context, e.toString(), title: 'Login Failed');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -50,7 +49,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('登入', style: AppText.title)),
+      appBar: AppBar(title: const Text('Sign In', style: AppText.title)),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -70,16 +69,16 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 12),
                   CustomTextField(
                     controller: _password,
-                    label: '密碼',
+                    label: 'Password',
                     obscureText: true,
                     validator: passwordValidator,
                   ),
                   const SizedBox(height: 20),
-                  CustomButton(text: '登入', onPressed: _onLogin, loading: _loading),
+                  CustomButton(text: 'Sign In', onPressed: _onLogin, loading: _loading),
                   const SizedBox(height: 12),
                   TextButton(
                     onPressed: () => Navigator.pushReplacementNamed(context, '/signup'),
-                    child: const Text('還沒有帳號？去註冊'),
+                    child: const Text("Don't have an account? Sign up"),
                   ),
                 ],
               ),
