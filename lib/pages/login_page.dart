@@ -46,22 +46,7 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  Future<void> _onForgotPassword() async {
-    final email = await _promptEmail();
-    if (email == null) return;
-
-    try {
-      final res = await ApiService.forgotPassword(email: email);
-      await showAlert(
-        context,
-        res['message']?.toString() ?? 'A new password has been generated and sent to your email.',
-        title: 'Password Reset',
-      );
-    } catch (e) {
-      await showAlert(context, e.toString(), title: 'Reset Failed');
-    }
-  }
-
+  // Prompt dialog with TextField to input email
   Future<String?> _promptEmail() async {
     final controller = TextEditingController(text: _email.text.trim());
     String? errorText;
@@ -83,7 +68,10 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.of(ctx).pop(null), child: const Text('Cancel')),
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(null),
+                  child: const Text('Cancel'),
+                ),
                 TextButton(
                   onPressed: () {
                     final value = controller.text.trim();
@@ -105,6 +93,22 @@ class _LoginPageState extends State<LoginPage> {
 
     controller.dispose();
     return result;
+  }
+
+  Future<void> _onForgotPassword() async {
+    final email = await _promptEmail();
+    if (email == null) return; // user cancelled
+
+    try {
+      final res = await ApiService.forgotPassword(email: email);
+      await showAlert(
+        context,
+        res['message']?.toString() ?? 'A new password has been generated and sent to your email.',
+        title: 'Password Reset',
+      );
+    } catch (e) {
+      await showAlert(context, e.toString(), title: 'Reset Failed');
+    }
   }
 
   @override
@@ -143,16 +147,17 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 20),
                   CustomButton(text: 'Sign In', onPressed: _onLogin, loading: _loading),
                   const SizedBox(height: 12),
+                  // 🔄 調換順序：Forgot password? 在左，Sign up? 在右
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       TextButton(
-                        onPressed: () => Navigator.pushReplacementNamed(context, '/signup'),
-                        child: const Text('Sign up?'),
-                      ),
-                      TextButton(
                         onPressed: _onForgotPassword,
                         child: const Text('Forgot password?'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pushReplacementNamed(context, '/signup'),
+                        child: const Text('Sign up?'),
                       ),
                     ],
                   ),
