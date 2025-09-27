@@ -4,6 +4,7 @@ import '../config/constants.dart';
 
 class ApiService {
   static Uri _u(String path) => Uri.parse('${AppConfig.baseUrl}$path');
+  static Uri _psw(String path) => Uri.parse('${AppConfig.pswBaseUrl}$path');
 
   static Map<String, String> get _jsonHeaders => {
         'Content-Type': 'application/json',
@@ -26,7 +27,7 @@ class ApiService {
     required String email,
     required String password,
     required String phone,
-    required String birthday, // YYYY-MM-DD
+    required String birthday, // YYYYMMDD
   }) async {
     final res = await http.post(
       _u('/register'),
@@ -38,6 +39,18 @@ class ApiService {
         'phone': phone,
         'birthday': birthday,
       }),
+    );
+    return _json(res);
+  }
+
+  // NEW: Forgot password
+  static Future<Map<String, dynamic>> forgotPassword({
+    required String email,
+  }) async {
+    final res = await http.post(
+      _psw('/found_psw'),
+      headers: _jsonHeaders,
+      body: jsonEncode({'email': email}),
     );
     return _json(res);
   }

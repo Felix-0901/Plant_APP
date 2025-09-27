@@ -39,10 +39,82 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
-      // Failure → show error dialog from server message
       await showAlert(context, e.toString(), title: 'Login Failed');
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  // Prompt dialog with TextField to input email
+  Future<String?> _promptEmail() async {
+    final controller = TextEditingController(text: _email.text.trim());
+    String? errorText;
+
+    final result = await showDialog<String?>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setState) {
+            return AlertDialog(
+              title: const Text('Forgot Password'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: InputDecoration(
+                      labelText: 'Email',
+                      errorText: errorText,
+                    ),
+                    onSubmitted: (_) {
+                      // allow submit via keyboard
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(null),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    final value = controller.text.trim();
+                    final err = emailValidator(value);
+                    if (err != null) {
+                      setState(() => errorText = err);
+                      return;
+                    }
+                    Navigator.of(ctx).pop(value);
+                  },
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    controller.dispose();
+    return result;
+  }
+
+  Future<void> _onForgotPassword() async {
+    final email = await _promptEmail();
+    if (email == null) return; // user cancelled
+
+    try {
+      final res = await ApiService.forgotPassword(email: email);
+      await showAlert(
+        context,
+        res['message']?.toString() ?? 'A new password has been generated and sent to your email.',
+        title: 'Password Reset',
+      );
+    } catch (e) {
+      await showAlert(context, e.toString(), title: 'Reset Failed');
     }
   }
 
@@ -76,9 +148,20 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 20),
                   CustomButton(text: 'Sign In', onPressed: _onLogin, loading: _loading),
                   const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: () => Navigator.pushReplacementNamed(context, '/signup'),
-                    child: const Text("Don't have an account? Sign up"),
+
+                  // Row with "Sign up?" and "Forgot password?"
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pushReplacementNamed(context, '/signup'),
+                        child: const Text('Sign up?'),
+                      ),
+                      TextButton(
+                        onPressed: _onForgotPassword,
+                        child: const Text('Forgot password?'),
+                      ),
+                    ],
                   ),
                 ],
               ),
