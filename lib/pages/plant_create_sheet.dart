@@ -1,3 +1,4 @@
+// lib/pages/plant_create_sheet.dart
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/session.dart';
@@ -14,7 +15,7 @@ class _PlantCreateSheetState extends State<PlantCreateSheet> {
   final _form = GlobalKey<FormState>();
   final _variety = TextEditingController();
   final _name = TextEditingController();
-  String _state = 'Seedling'; // 預設
+  String _state = 'seedling'; // 預設值
   bool _loading = false;
 
   @override
@@ -44,7 +45,7 @@ class _PlantCreateSheetState extends State<PlantCreateSheet> {
         email: email,
       );
 
-      // 依題意：成功不跳提示，直接關閉並回傳 true
+      // 成功：直接關閉並回傳 true
       // ignore: avoid_print
       print('Create plant => $data');
       if (!mounted) return;
@@ -58,74 +59,76 @@ class _PlantCreateSheetState extends State<PlantCreateSheet> {
 
   @override
   Widget build(BuildContext context) {
-    // 讓 BottomSheet 配合鍵盤高度
-    final viewInsets = MediaQuery.of(context).viewInsets;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Padding(
-      padding: EdgeInsets.only(bottom: viewInsets.bottom),
+      padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: bottomInset + 20),
       child: SafeArea(
         top: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
           child: Form(
             key: _form,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // 抬頭
-                const Center(
-                  child: Text(
-                    'Create Plant',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-                  ),
-                ),
-                const SizedBox(height: 16),
+                const Text('Create Plant', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 20),
 
                 // Plant variety
                 TextFormField(
                   controller: _variety,
-                  decoration: const InputDecoration(labelText: 'Plant variety'),
-                  validator: (v) => requiredValidator(v, label: 'Plant variety'),
+                  decoration: const InputDecoration(
+                    labelText: 'Plant variety',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                  ),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter variety' : null,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
 
                 // Plant name
                 TextFormField(
                   controller: _name,
-                  decoration: const InputDecoration(labelText: 'Plant name'),
-                  validator: (v) => requiredValidator(v, label: 'Plant name'),
-                ),
-                const SizedBox(height: 12),
-
-                // Plant state (dropdown)
-                InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Plant state', border: OutlineInputBorder()),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _state,
-                      isExpanded: true,
-                      items: const [
-                        DropdownMenuItem(value: 'Seedling', child: Text('Seedling')),
-                        DropdownMenuItem(value: 'Growing', child: Text('Growing')),
-                        DropdownMenuItem(value: 'Stable', child: Text('Stable')),
-                      ],
-                      onChanged: (v) => setState(() => _state = v ?? _state),
-                    ),
+                  decoration: const InputDecoration(
+                    labelText: 'Plant name',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                   ),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter name' : null,
+                ),
+                const SizedBox(height: 16),
+
+                // Plant state (dropdown) —— 高度、寬度、文字顏色和 TextFormField 一致
+                DropdownButtonFormField<String>(
+                  value: _state,
+                  onChanged: (v) => setState(() => _state = v ?? _state),
+                  items: const [
+                    DropdownMenuItem(value: 'seedling', child: Text('Seedling')),
+                    DropdownMenuItem(value: 'growing', child: Text('Growing')),
+                    DropdownMenuItem(value: 'stable', child: Text('Stable')),
+                  ],
+                  decoration: const InputDecoration(
+                    labelText: 'Plant state',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                  ),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.black, // ✅ 文字顏色和 TextFormField 一樣
+                  ),
+                  dropdownColor: Colors.white, // ✅ 下拉背景白色
+                  isDense: true, // ✅ 保持標準高度
                 ),
                 const SizedBox(height: 20),
 
                 // Submit
                 SizedBox(
+                  width: double.infinity,
                   height: 48,
                   child: ElevatedButton(
                     onPressed: _loading ? null : _submit,
                     child: _loading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Text('Submit'),
                   ),
                 ),
