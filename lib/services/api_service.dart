@@ -10,7 +10,6 @@ class ApiService {
   static Uri _hp(String path) => Uri.parse('${AppConfig.homepageBaseUrl}$path');      // homepage_setting.php
   static Uri _plant(String path) => Uri.parse('${AppConfig.plantBaseUrl}$path');      // plant_setting.php
 
-  // 重點：加上 charset，避免部分 PHP 環境解析問題
   static Map<String, String> get _jsonHeaders => {
         'Content-Type': 'application/json; charset=utf-8',
       };
@@ -19,8 +18,6 @@ class ApiService {
   //                      Auth
   // ======================================================
 
-  /// 登入：POST /login
-  /// 成功例：{ "message": "Login successful", "email": "xx@xx.com" }
   static Future<Map<String, dynamic>> login({
     required String email,
     required String password,
@@ -33,8 +30,6 @@ class ApiService {
     return _json(res);
   }
 
-  /// 註冊：POST /register
-  /// 成功例：{ "message": "Registration successful" }
   static Future<Map<String, dynamic>> signup({
     required String name,
     required String email,
@@ -56,8 +51,6 @@ class ApiService {
     return _json(res);
   }
 
-  /// 忘記密碼：POST /found_psw
-  /// 成功例：{ "message": "A new password has been generated and sent to your email." }
   static Future<Map<String, dynamic>> forgotPassword({
     required String email,
   }) async {
@@ -73,14 +66,11 @@ class ApiService {
   //                     Homepage
   // ======================================================
 
-  /// 公告列表：POST /search_announcements（不需 body）
-  /// 成功例：{ "message":"Search completed", "results":[{id,title,content,date}, ...] }
-  /// 無公告：{ "message":"No announcements" }
   static Future<List<Map<String, dynamic>>> searchAnnouncements() async {
     final res = await http.post(
       _hp('/search_announcements'),
       headers: _jsonHeaders,
-      body: jsonEncode({}), // 後端不需要，但維持 JSON
+      body: jsonEncode({}),
     );
     final data = _jsonAny(res);
     if (data is Map<String, dynamic>) {
@@ -96,10 +86,6 @@ class ApiService {
   //                       Plant
   // ======================================================
 
-  /// 取得使用者的植物資訊：POST /get_plant_info
-  /// body: { "email": "..." }
-  /// 成功例：{ "results":[{...}, ...] } 或直接回傳陣列
-  /// 無資料：{ "message": "No plant data found" }
   static Future<List<Map<String, dynamic>>> getPlantInfo({
     required String email,
   }) async {
@@ -119,25 +105,15 @@ class ApiService {
     return [];
   }
 
-  /// 建立植物（只用 JSON 送出，並完整印出請求/回應以便比對）
-  /// 後端程式是：
-  ///   $data = json_decode(file_get_contents('php://input'), true);
-  ///   $plant_variety  = $data['plant_variety'] ?? '';
-  ///   $plant_name     = $data['plant_name'] ?? '';
-  ///   $plant_state    = $data['plant_state'] ?? '';
-  ///   $setup_time     = $data['setup_time'] ?? '';
-  ///   $email          = $data['email'] ?? '';
   static Future<Map<String, dynamic>> createPlant({
     required String plantVariety,
     required String plantName,
-    required String plantState, // 建議小寫: seedling/growing/stable
-    required String setupTime,  // YYYYMMDD
+    required String plantState,
+    required String setupTime,
     required String email,
   }) async {
-    // 標準化狀態（全小寫）
     final state = plantState.trim().toLowerCase();
 
-    // 1) 準備 URL 與 JSON body
     final url = _plant('/create_plant');
     final payload = {
       'plant_variety': plantVariety.trim(),
@@ -147,7 +123,6 @@ class ApiService {
       'email': email.trim(),
     };
 
-    // 2) 把「將要送出的東西」完整印出（方便和 Postman 一字不差比對）
     // ignore: avoid_print
     print('=== CREATE_PLANT REQUEST ===');
     // ignore: avoid_print
@@ -157,14 +132,12 @@ class ApiService {
     // ignore: avoid_print
     print('Body(JSON): ${jsonEncode(payload)}');
 
-    // 3) 送出（只用 JSON；因為伺服器就是用 json_decode 讀取）
     final res = await http.post(
       url,
       headers: _jsonHeaders,
       body: jsonEncode(payload),
     );
 
-    // 4) 原文回應＆狀態碼完整印出
     // ignore: avoid_print
     print('=== CREATE_PLANT RESPONSE ===');
     // ignore: avoid_print
@@ -172,19 +145,18 @@ class ApiService {
     // ignore: avoid_print
     print('RAW: ${res.body}');
 
-    // 5) 解析（保持寬鬆，錯誤時帶原文訊息）
     dynamic data;
     try {
       data = res.body.isEmpty ? null : jsonDecode(res.body);
     } catch (_) {
-      data = res.body; // 不是 JSON 就原文
+      data = res.body;
     }
     if (res.statusCode < 200 || res.statusCode >= 300) {
       String msg = 'Request failed';
       if (data is Map<String, dynamic>) {
         msg = data['message']?.toString() ??
-              data['error']?.toString() ??
-              msg;
+            data['error']?.toString() ??
+            msg;
       } else if (data is String && data.isNotEmpty) {
         msg = data;
       }
@@ -194,23 +166,68 @@ class ApiService {
     return {'message': 'OK', 'data': data};
   }
 
+  // ✅ NEW: initialize plant (for tasks)
+  // API: http://35.189.162.86/Max_plant/plant_setting.php/initialize_plant
+  // body:
+  //   uuid, email, today_state, last_watering_time (YYYYMMDDhhmmss)
+  static Future<bool> initializePlant({
+    required String uuid,
+    required String email,
+    required String todayState,
+    required String lastWateringTime,
+  }) async {
+    final url = _plant('/initialize_plant');
+    final payload = {
+      'uuid': uuid,
+      'email': email,
+      'today_state': todayState,
+      'last_watering_time': lastWateringTime,
+    };
+
+    // ignore: avoid_print
+    print('=== INITIALIZE_PLANT REQUEST ===');
+    // ignore: avoid_print
+    print('URL: $url');
+    // ignore: avoid_print
+    print('Body(JSON): ${jsonEncode(payload)}');
+
+    final res = await http.post(
+      url,
+      headers: _jsonHeaders,
+      body: jsonEncode(payload),
+    );
+
+    // ignore: avoid_print
+    print('=== INITIALIZE_PLANT RESPONSE ===');
+    // ignore: avoid_print
+    print('Status: ${res.statusCode}');
+    // ignore: avoid_print
+    print('RAW: ${res.body}');
+
+    if (res.statusCode < 200 || res.statusCode >= 300) return false;
+
+    // If server returns non-JSON, still treat 200 as ok
+    return true;
+  }
+
   // ======================================================
   //                      Helpers
   // ======================================================
 
-  /// 嚴格 Map 輸出；非 2xx 丟 ApiException(message)
   static Map<String, dynamic> _json(http.Response res) {
     final body = res.body.isEmpty ? '{}' : res.body;
     final data = jsonDecode(body) as Map<String, dynamic>;
     // ignore: avoid_print
     print('[API ${res.request?.url}] ${res.statusCode} => $data');
     if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw ApiException(message: data['message']?.toString() ?? 'Request failed', code: res.statusCode);
+      throw ApiException(
+        message: data['message']?.toString() ?? 'Request failed',
+        code: res.statusCode,
+      );
     }
     return data;
   }
 
-  /// 寬鬆任何型別輸出；非 2xx 丟 ApiException(message)
   static dynamic _jsonAny(http.Response res) {
     final body = res.body.isEmpty ? 'null' : res.body;
     final data = jsonDecode(body);
@@ -224,6 +241,11 @@ class ApiService {
       throw ApiException(message: msg, code: res.statusCode);
     }
     return data;
+  }
+
+  // ✅ tiny helper for cases where task is a JSON string
+  static dynamic tryDecodeJson(String s) {
+    return jsonDecode(s);
   }
 }
 

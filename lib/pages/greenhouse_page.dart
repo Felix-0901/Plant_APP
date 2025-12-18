@@ -5,6 +5,7 @@ import '../utils/session.dart';
 import '../utils/tools.dart';
 import '../config/constants.dart';
 import 'plant_create_sheet.dart';
+import 'plant_page.dart'; // ✅ NEW
 
 class GreenhousePage extends StatefulWidget {
   const GreenhousePage({super.key});
@@ -44,24 +45,20 @@ class _GreenhousePageState extends State<GreenhousePage> {
     }
   }
 
-  // ✅ 寬鬆解析：支援 YYYYMMDD / YYYY-MM-DD / YYYY/MM/DD
   DateTime? parseYmd(String? input) {
     if (input == null) return null;
     final s = input.trim();
     try {
       if (RegExp(r'^\d{8}$').hasMatch(s)) {
-        // YYYYMMDD
         final y = int.parse(s.substring(0, 4));
         final m = int.parse(s.substring(4, 6));
         final d = int.parse(s.substring(6, 8));
         return DateTime(y, m, d);
       }
       if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(s)) {
-        // YYYY-MM-DD
         return DateTime.parse(s);
       }
       if (RegExp(r'^\d{4}/\d{2}/\d{2}$').hasMatch(s)) {
-        // YYYY/MM/DD -> 轉成 - 再 parse
         return DateTime.parse(s.replaceAll('/', '-'));
       }
     } catch (_) {
@@ -70,13 +67,11 @@ class _GreenhousePageState extends State<GreenhousePage> {
     return null;
   }
 
-  // ✅ 今天的「日期」（去除時分秒）
   DateTime todayDateOnly() {
     final now = DateTime.now();
     return DateTime(now.year, now.month, now.day);
   }
 
-  // 今日是否已初始化（true = 綠點 / 已照顧）
   bool _caredToday(String? initDateStr) {
     final d = parseYmd(initDateStr);
     if (d == null) return false;
@@ -84,7 +79,6 @@ class _GreenhousePageState extends State<GreenhousePage> {
     return DateTime(d.year, d.month, d.day) == today;
   }
 
-  // 照顧天數 = (today - setup_time).inDays + 1（今天建立即顯示 1）
   String _careDays(String? setupDateStr) {
     final setup = parseYmd(setupDateStr);
     if (setup == null) return '-';
@@ -113,7 +107,6 @@ class _GreenhousePageState extends State<GreenhousePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // AppBar：白底、無陰影、標題 Greenhouse（黑字粗體）
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -131,7 +124,7 @@ class _GreenhousePageState extends State<GreenhousePage> {
         onRefresh: _loadPlants,
         child: _loaded
             ? (_plants.isEmpty
-                ? const _EmptyState() // 置中顯示「No plants」
+                ? const _EmptyState()
                 : ListView.builder(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(20),
@@ -142,8 +135,8 @@ class _GreenhousePageState extends State<GreenhousePage> {
                       final name = (p['plant_name'] ?? '').toString();
                       final variety = (p['plant_variety'] ?? '').toString();
                       final state = (p['plant_state'] ?? '').toString();
-                      final setupTime = (p['setup_time'] ?? '').toString();        // 可能是 YYYY-MM-DD
-                      final init = (p['initialization'] ?? '').toString();         // 也一併用寬鬆解析
+                      final setupTime = (p['setup_time'] ?? '').toString();
+                      final init = (p['initialization'] ?? '').toString();
 
                       final cared = _caredToday(init);
                       final daysText = _careDays(setupTime);
@@ -154,8 +147,26 @@ class _GreenhousePageState extends State<GreenhousePage> {
                         state: state,
                         caredToday: cared,
                         daysText: daysText,
-                        onTap: () {
-                          // 預留：之後點擊卡片的功能
+                        onTap: () async {
+                          final email = Session.email;
+                          if (email == null || email.isEmpty) {
+                            await showAlert(context, 'Please login again.', title: 'Session');
+                            return;
+                          }
+
+                          final shouldRefresh = await Navigator.push<bool>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => PlantPage(
+                                plant: p,
+                                email: email,
+                              ),
+                            ),
+                          );
+
+                          if (shouldRefresh == true) {
+                            await _loadPlants();
+                          }
                         },
                       );
                     },
@@ -170,8 +181,6 @@ class _GreenhousePageState extends State<GreenhousePage> {
                 ],
               ),
       ),
-
-      // 右下角：新增植物
       floatingActionButton: FloatingActionButton(
         onPressed: _openCreate,
         child: const Icon(Icons.add),
@@ -185,7 +194,6 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 置中顯示 + 保留下拉刷新
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
@@ -212,8 +220,8 @@ class _PlantCard extends StatelessWidget {
   final String name;
   final String variety;
   final String state;
-  final bool caredToday; // true=綠點、false=紅點
-  final String daysText; // "N days" or "-"
+  final bool caredToday;
+  final String daysText;
   final VoidCallback? onTap;
 
   const _PlantCard({
@@ -246,7 +254,6 @@ class _PlantCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 第一行：紅/綠點 + 名稱（最大黑字） + 右側天數（黃色）
                 Row(
                   children: [
                     Container(
@@ -270,15 +277,14 @@ class _PlantCard extends StatelessWidget {
                     Text(
                       daysText,
                       style: const TextStyle(
-                        fontSize: 20, // ✅ 和名稱一樣大
-                        fontWeight: FontWeight.bold, // ✅ 粗體
-                        color: AppColors.deepYellow
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.deepYellow,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                // 第二行：品種 + 狀態（灰色小字，左到右）
                 Row(
                   children: [
                     Expanded(
