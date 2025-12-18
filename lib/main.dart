@@ -1,3 +1,4 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'config/constants.dart';
 import 'pages/login_page.dart';

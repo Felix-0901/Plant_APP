@@ -1,4 +1,5 @@
 // lib/pages/plant_page.dart
+import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
@@ -21,6 +22,9 @@ class PlantPage extends StatefulWidget {
 
 class _PlantPageState extends State<PlantPage> {
   bool _initDialogShown = false;
+  bool _busy = false;
+
+  late Map<String, dynamic> _plant; // ✅ current plant data (will refresh from server)
 
   final TextEditingController _todayStateCtrl = TextEditingController();
   DateTime? _lastWateringDateTime;
@@ -28,6 +32,8 @@ class _PlantPageState extends State<PlantPage> {
   @override
   void initState() {
     super.initState();
+    _plant = Map<String, dynamic>.from(widget.plant);
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       await _maybeForceInitialize();
@@ -40,8 +46,10 @@ class _PlantPageState extends State<PlantPage> {
     super.dispose();
   }
 
+  String get _uuid => (_plant['uuid'] ?? '').toString();
+
   // -----------------------------
-  // Date helpers (same tolerant style)
+  // Date helpers
   // -----------------------------
   DateTime? parseYmd(String? input) {
     if (input == null) return null;
@@ -71,7 +79,7 @@ class _PlantPageState extends State<PlantPage> {
   }
 
   bool _needsInitializationToday() {
-    final initStr = (widget.plant['initialization'] ?? '').toString();
+    final initStr = (_plant['initialization'] ?? '').toString();
     final d = parseYmd(initStr);
     if (d == null) return true;
     final today = todayDateOnly();
@@ -79,19 +87,17 @@ class _PlantPageState extends State<PlantPage> {
   }
 
   int _careDaysFromSetup() {
-    final setupStr = (widget.plant['setup_time'] ?? '').toString();
+    final setupStr = (_plant['setup_time'] ?? '').toString();
     final setup = parseYmd(setupStr);
     if (setup == null) return 0;
 
     final today = todayDateOnly();
     final diff =
         today.difference(DateTime(setup.year, setup.month, setup.day)).inDays;
-    final days = (diff < 0 ? 0 : diff) + 1;
-    return days;
+    return (diff < 0 ? 0 : diff) + 1;
   }
 
   String _formatYmdHmsCompact(DateTime dt) {
-    // YYYYMMDDhhmmss
     final y = dt.year.toString().padLeft(4, '0');
     final m = dt.month.toString().padLeft(2, '0');
     final d = dt.day.toString().padLeft(2, '0');
@@ -101,14 +107,16 @@ class _PlantPageState extends State<PlantPage> {
     return '$y$m$d$hh$mm$ss';
   }
 
+  // -----------------------------
+  // Task parsing (robust)
+  // -----------------------------
   Map<String, dynamic>? _taskMap() {
-    final t = widget.plant['task'];
+    final t = _plant['task'];
     if (t == null) return null;
 
     if (t is Map<String, dynamic>) return t;
     if (t is Map) return t.map((k, v) => MapEntry(k.toString(), v));
 
-    // If server sometimes returns JSON string
     if (t is String) {
       final s = t.trim();
       if (s.startsWith('{') && s.endsWith('}')) {
@@ -123,8 +131,62 @@ class _PlantPageState extends State<PlantPage> {
     return null;
   }
 
+  bool _taskDone(dynamic v) {
+    if (v is Map) {
+      final s = v['state'];
+      return s == true || s?.toString().toLowerCase() == 'true';
+    }
+    return false;
+  }
+
+  String _taskContent(dynamic v, String fallbackKey) {
+    if (v is Map) {
+      final c = v['content']?.toString() ?? '';
+      return c.isEmpty ? fallbackKey : c;
+    }
+    return fallbackKey;
+  }
+
   // -----------------------------
-  // Initialization flow
+  // Refresh plant from server (fetch all -> find by uuid)
+  // -----------------------------
+  Future<void> _refreshPlantFromServer() async {
+    final plants = await ApiService.getPlantInfo(email: widget.email);
+
+    Map<String, dynamic>? found;
+    for (final p in plants) {
+      if ((p['uuid'] ?? '').toString() == _uuid) {
+        found = p;
+        break;
+      }
+    }
+
+    if (found == null) {
+      await showAlert(context, 'Plant not found after refresh.', title: 'Error');
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _plant = Map<String, dynamic>.from(found!);
+    });
+  }
+
+  // -----------------------------
+  // Busy overlay
+  // -----------------------------
+  Future<T?> _runBusy<T>(Future<T?> Function() job) async {
+    if (_busy) return null;
+    setState(() => _busy = true);
+    try {
+      return await job();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  // -----------------------------
+  // Initialization flow (same as before)
   // -----------------------------
   Future<void> _maybeForceInitialize() async {
     if (_initDialogShown) return;
@@ -135,7 +197,6 @@ class _PlantPageState extends State<PlantPage> {
       final ok = await _showInitializeDialog();
       if (!mounted) return;
 
-      // If user chooses back => return to greenhouse (no refresh)
       if (ok != true) {
         Navigator.of(context).pop(false);
       }
@@ -197,28 +258,32 @@ class _PlantPageState extends State<PlantPage> {
                   return;
                 }
 
-                final uuid = (widget.plant['uuid'] ?? '').toString();
                 final lastWateringTime = _formatYmdHmsCompact(lastDt);
 
-                final ok = await ApiService.initializePlant(
-                  uuid: uuid,
-                  email: widget.email,
-                  todayState: todayState,
-                  lastWateringTime: lastWateringTime,
-                );
+                final ok = await _runBusy<bool>(() async {
+                  return await ApiService.initializePlant(
+                    uuid: _uuid,
+                    email: widget.email,
+                    todayState: todayState,
+                    lastWateringTime: lastWateringTime,
+                  );
+                });
 
                 if (!mounted) return;
 
-                if (ok) {
+                if (ok == true) {
                   Navigator.of(ctx).pop(true);
 
-                  // Screen dark + white spinner 5s
+                  // 5 seconds overlay spinner (as your spec)
                   await _showBlockingSpinner5s();
 
                   if (!mounted) return;
 
-                  // back to greenhouse => refresh
-                  Navigator.of(context).pop(true);
+                  // refresh plant data in this page
+                  await _runBusy<void>(() async {
+                    await _refreshPlantFromServer();
+                    return null;
+                  });
                 } else {
                   await showAlert(
                     context,
@@ -251,152 +316,252 @@ class _PlantPageState extends State<PlantPage> {
   }
 
   // -----------------------------
+  // ✅ NEW: Task completion flow
+  // -----------------------------
+  Future<void> _completeTask(String taskKey) async {
+    final tasks = _taskMap();
+    if (tasks == null || tasks.isEmpty) {
+      await showAlert(context, 'No tasks available.', title: 'Tasks');
+      return;
+    }
+
+    final raw = tasks[taskKey];
+    if (raw is! Map) return;
+
+    final alreadyDone = _taskDone(raw);
+    if (alreadyDone) {
+      await showAlert(context, 'This task is already completed.', title: 'Tasks');
+      return;
+    }
+
+    // ✅ 1) 先建立 updated task（只改被點的那個 state=true）
+    final updated = <String, dynamic>{};
+    for (final entry in tasks.entries) {
+      final k = entry.key;
+      final v = entry.value;
+
+      if (v is Map) {
+        final vv = Map<String, dynamic>.from(
+          v.map((kk, vv) => MapEntry(kk.toString(), vv)),
+        );
+        if (k == taskKey) vv['state'] = true;
+        updated[k] = vv;
+      } else {
+        updated[k] = v;
+      }
+    }
+
+    // ✅ 2) 先讓 UI 立刻變完成（本地先改）
+    setState(() {
+      _plant['task'] = updated;
+    });
+
+    await _runBusy<void>(() async {
+      // ✅ 3) 上傳
+      final ok = await ApiService.updatePlantTask(
+        uuid: _uuid,
+        email: widget.email,
+        task: updated,
+      );
+
+      if (!ok) {
+        // ❗失敗就回復 UI（再拉一次伺服器狀態最保險）
+        await _refreshPlantFromServer();
+        await showAlert(context, 'Failed to update task.', title: 'Tasks');
+        return null;
+      }
+
+      // ✅ 4) 成功後：再跟伺服器要所有植物資料 → 找 uuid → 更新此頁
+      await _refreshPlantFromServer();
+      return null;
+    });
+  }
+
+
+  // -----------------------------
   // UI
   // -----------------------------
   @override
   Widget build(BuildContext context) {
-    // According to your data:
-    // plant_variety = Plant name
-    // plant_name    = Plant nickname
-    final plantName = (widget.plant['plant_variety'] ?? '').toString();
-    final nickname = (widget.plant['plant_name'] ?? '').toString();
-    final setupTime = (widget.plant['setup_time'] ?? '').toString();
-    final initTime = (widget.plant['initialization'] ?? '').toString();
-    final status = (widget.plant['plant_state'] ?? '').toString();
+    final plantName = (_plant['plant_variety'] ?? '').toString();
+    final nickname = (_plant['plant_name'] ?? '').toString();
+    final setupTime = (_plant['setup_time'] ?? '').toString();
+    final initTime = (_plant['initialization'] ?? '').toString();
+    final status = (_plant['plant_state'] ?? '').toString();
     final careDays = _careDaysFromSetup();
     final tasks = _taskMap();
 
     final caredToday = !_needsInitializationToday();
     final dotColor = caredToday ? Colors.green : Colors.red;
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        title: Text(
-          nickname.isEmpty ? 'Plant' : nickname,
-          style: const TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          // Info card
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.black12),
-              color: Colors.white,
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            centerTitle: true,
+            title: Text(
+              nickname.isEmpty ? 'Plant' : nickname,
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          ),
+          body: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              // Info card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.black12),
+                  color: Colors.white,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 10,
-                      height: 10,
-                      margin: const EdgeInsets.only(right: 8),
-                      decoration:
-                          BoxDecoration(color: dotColor, shape: BoxShape.circle),
-                    ),
-                    Expanded(
-                      child: Text(
-                        plantName.isEmpty ? '-' : plantName,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black,
+                    Row(
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          margin: const EdgeInsets.only(right: 8),
+                          decoration:
+                              BoxDecoration(color: dotColor, shape: BoxShape.circle),
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                        Expanded(
+                          child: Text(
+                            plantName.isEmpty ? '-' : plantName,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
+                    const SizedBox(height: 10),
+                    _InfoRow(label: 'Plant name', value: plantName),
+                    _InfoRow(label: 'Plant nickname', value: nickname),
+                    _InfoRow(label: 'Care start date', value: setupTime),
+                    _InfoRow(label: 'Care days', value: '$careDays days'),
+                    _InfoRow(label: 'Status', value: status),
+                    _InfoRow(label: 'Initialized', value: initTime),
                   ],
                 ),
-                const SizedBox(height: 10),
-                _InfoRow(label: 'Plant name', value: plantName),
-                _InfoRow(label: 'Plant nickname', value: nickname),
-                _InfoRow(label: 'Care start date', value: setupTime),
-                _InfoRow(label: 'Care days', value: '$careDays days'),
-                _InfoRow(label: 'Status', value: status),
-                _InfoRow(label: 'Initialized', value: initTime),
-              ],
-            ),
-          ),
+              ),
 
-          const SizedBox(height: 12),
+              const SizedBox(height: 12),
 
-          // Tasks card
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.black12),
-              color: Colors.white,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Tasks',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.deepYellow,
-                  ),
+              // Tasks card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.black12),
+                  color: Colors.white,
                 ),
-                const SizedBox(height: 10),
-                if (tasks == null || tasks.isEmpty) ...[
-                  const Text(
-                    'No tasks yet.',
-                    style: TextStyle(fontSize: 13, color: Colors.black54),
-                  ),
-                ] else ...[
-                  ...tasks.entries.map((e) {
-                    final v = e.value;
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Tasks',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.deepYellow,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
 
-                    bool done = false;
-                    String content = '';
+                    if (tasks == null || tasks.isEmpty) ...[
+                      const Text(
+                        'No tasks yet.',
+                        style: TextStyle(fontSize: 13, color: Colors.black54),
+                      ),
+                    ] else ...[
+                      ...tasks.entries.map((e) {
+                        final key = e.key;
+                        final v = e.value;
 
-                    if (v is Map) {
-                      done = (v['state'] == true);
-                      content = (v['content'] ?? '').toString();
-                    }
+                        final done = _taskDone(v);
+                        final content = _taskContent(v, key);
 
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            done ? Icons.check_circle : Icons.radio_button_unchecked,
-                            size: 18,
-                            color: done ? Colors.green : Colors.black26,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              content.isEmpty ? e.key : content,
-                              style: const TextStyle(fontSize: 14, color: Colors.black),
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: done ? null : () => _completeTask(key),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                  horizontal: 10,
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(
+                                      done
+                                          ? Icons.check_circle
+                                          : Icons.radio_button_unchecked,
+                                      size: 18,
+                                      color: done ? Colors.green : Colors.black26,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        content,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: done ? Colors.black38 : Colors.black,
+                                          decoration: done
+                                              ? TextDecoration.lineThrough
+                                              : TextDecoration.none,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    if (!done)
+                                      const Icon(
+                                        Icons.chevron_right,
+                                        size: 18,
+                                        color: Colors.black26,
+                                      ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
-                        ],
-                      ),
-                    );
-                  }),
-                ],
-              ],
+                        );
+                      }),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // ✅ Busy overlay (during update task / refresh)
+        if (_busy)
+          Positioned.fill(
+            child: Container(
+              color: Colors.black26,
+              child: const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
             ),
           ),
-        ],
-      ),
+      ],
     );
   }
 }
