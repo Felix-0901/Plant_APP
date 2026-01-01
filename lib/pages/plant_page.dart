@@ -1,5 +1,4 @@
 // lib/pages/plant_page.dart
-import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
@@ -48,35 +47,7 @@ class _PlantPageState extends State<PlantPage> {
 
   String get _uuid => (_plant['uuid'] ?? '').toString();
 
-  // -----------------------------
-  // Date helpers
-  // -----------------------------
-  DateTime? parseYmd(String? input) {
-    if (input == null) return null;
-    final s = input.trim();
-    try {
-      if (RegExp(r'^\d{8}$').hasMatch(s)) {
-        final y = int.parse(s.substring(0, 4));
-        final m = int.parse(s.substring(4, 6));
-        final d = int.parse(s.substring(6, 8));
-        return DateTime(y, m, d);
-      }
-      if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(s)) {
-        return DateTime.parse(s);
-      }
-      if (RegExp(r'^\d{4}/\d{2}/\d{2}$').hasMatch(s)) {
-        return DateTime.parse(s.replaceAll('/', '-'));
-      }
-    } catch (_) {
-      return null;
-    }
-    return null;
-  }
 
-  DateTime todayDateOnly() {
-    final now = DateTime.now();
-    return DateTime(now.year, now.month, now.day);
-  }
 
   bool _needsInitializationToday() {
     final initStr = (_plant['initialization'] ?? '').toString();

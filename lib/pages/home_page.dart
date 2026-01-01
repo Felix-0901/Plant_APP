@@ -87,7 +87,7 @@ class _HomePageState extends State<HomePage>
         if (name.isEmpty) continue;
 
         final initStr = (p['initialization'] ?? '').toString();
-        final initDate = _parseYmdFlexible(initStr);
+        final initDate = parseYmd(initStr);
 
         if (initDate == null) {
           tooLong.add(name);
@@ -132,33 +132,7 @@ class _HomePageState extends State<HomePage>
   bool _onAnnouncementsScroll(ScrollNotification n) => false;
   bool _onBottomListScroll(ScrollNotification n) => false;
 
-  DateTime? _parseYmdFlexible(String s) {
-    if (s.isEmpty) return null;
-    s = s.trim();
 
-    final iso = DateTime.tryParse(s);
-    if (iso != null) {
-      return DateTime(iso.year, iso.month, iso.day);
-    }
-
-    final digits8 = RegExp(r'^\d{8}$');
-    if (digits8.hasMatch(s)) {
-      final y = int.parse(s.substring(0, 4));
-      final m = int.parse(s.substring(4, 6));
-      final d = int.parse(s.substring(6, 8));
-      return DateTime(y, m, d);
-    }
-
-    final m = RegExp(r'^(\d{4})\D(\d{1,2})\D(\d{1,2})').firstMatch(s);
-    if (m != null) {
-      final y = int.parse(m.group(1)!);
-      final mm = int.parse(m.group(2)!);
-      final dd = int.parse(m.group(3)!);
-      return DateTime(y, mm, dd);
-    }
-
-    return null;
-  }
 
   @override
   Widget build(BuildContext context) {

@@ -102,18 +102,48 @@ DateTime todayDateOnly() {
   return DateTime(now.year, now.month, now.day);
 }
 
-// 將 'YYYYMMDD' 轉成 DateTime（失敗回 null）
+// 將多種日期格式轉成 DateTime（失敗回 null）
+// 支援：YYYYMMDD、YYYY-MM-DD、YYYY/MM/DD、ISO 格式等
 DateTime? parseYmd(String? s) {
   if (s == null) return null;
   final t = s.trim();
-  if (!RegExp(r'^\d{8}$').hasMatch(t)) return null;
-  final y = int.tryParse(t.substring(0, 4));
-  final m = int.tryParse(t.substring(4, 6));
-  final d = int.tryParse(t.substring(6, 8));
-  if (y == null || m == null || d == null) return null;
-  try {
-    return DateTime(y, m, d);
-  } catch (_) {
-    return null;
+  if (t.isEmpty) return null;
+
+  // ISO format (e.g., 2024-01-01T12:00:00)
+  final iso = DateTime.tryParse(t);
+  if (iso != null) {
+    return DateTime(iso.year, iso.month, iso.day);
   }
+
+  // YYYYMMDD format
+  if (RegExp(r'^\d{8}$').hasMatch(t)) {
+    final y = int.tryParse(t.substring(0, 4));
+    final m = int.tryParse(t.substring(4, 6));
+    final d = int.tryParse(t.substring(6, 8));
+    if (y != null && m != null && d != null) {
+      try {
+        return DateTime(y, m, d);
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
+  // YYYY-MM-DD or YYYY/MM/DD format
+  final match = RegExp(r'^(\d{4})\D(\d{1,2})\D(\d{1,2})').firstMatch(t);
+  if (match != null) {
+    final y = int.tryParse(match.group(1)!);
+    final m = int.tryParse(match.group(2)!);
+    final d = int.tryParse(match.group(3)!);
+    if (y != null && m != null && d != null) {
+      try {
+        return DateTime(y, m, d);
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
+  return null;
 }
+

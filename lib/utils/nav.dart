@@ -1,6 +1,5 @@
 // lib/utils/nav.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 
 Route<T> slideFromRight<T>(Widget page, {Duration duration = const Duration(milliseconds: 280)}) {
   return PageRouteBuilder<T>(

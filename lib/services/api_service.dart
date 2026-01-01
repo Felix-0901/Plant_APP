@@ -130,27 +130,11 @@ class ApiService {
       'email': email.trim(),
     };
 
-    // ignore: avoid_print
-    print('=== CREATE_PLANT REQUEST ===');
-    // ignore: avoid_print
-    print('URL: $url');
-    // ignore: avoid_print
-    print('Headers: ${{'Content-Type': 'application/json; charset=utf-8'}}');
-    // ignore: avoid_print
-    print('Body(JSON): ${jsonEncode(payload)}');
-
     final res = await http.post(
       url,
       headers: _jsonHeaders,
       body: jsonEncode(payload),
     );
-
-    // ignore: avoid_print
-    print('=== CREATE_PLANT RESPONSE ===');
-    // ignore: avoid_print
-    print('Status: ${res.statusCode}');
-    // ignore: avoid_print
-    print('RAW: ${res.body}');
 
     dynamic data;
     try {
@@ -186,25 +170,11 @@ class ApiService {
       'last_watering_time': lastWateringTime,
     };
 
-    // ignore: avoid_print
-    print('=== INITIALIZE_PLANT REQUEST ===');
-    // ignore: avoid_print
-    print('URL: $url');
-    // ignore: avoid_print
-    print('Body(JSON): ${jsonEncode(payload)}');
-
     final res = await http.post(
       url,
       headers: _jsonHeaders,
       body: jsonEncode(payload),
     );
-
-    // ignore: avoid_print
-    print('=== INITIALIZE_PLANT RESPONSE ===');
-    // ignore: avoid_print
-    print('Status: ${res.statusCode}');
-    // ignore: avoid_print
-    print('RAW: ${res.body}');
 
     return res.statusCode >= 200 && res.statusCode < 300;
   }
@@ -226,25 +196,11 @@ class ApiService {
       'task': jsonEncode(task),
     };
 
-    // ignore: avoid_print
-    print('=== UPDATE_PLANT_TASK REQUEST ===');
-    // ignore: avoid_print
-    print('URL: $url');
-    // ignore: avoid_print
-    print('Body(JSON): ${jsonEncode(payload)}');
-
     final res = await http.post(
       url,
       headers: _jsonHeaders,
       body: jsonEncode(payload),
     );
-
-    // ignore: avoid_print
-    print('=== UPDATE_PLANT_TASK RESPONSE ===');
-    // ignore: avoid_print
-    print('Status: ${res.statusCode}');
-    // ignore: avoid_print
-    print('RAW: ${res.body}');
 
     if (res.statusCode < 200 || res.statusCode >= 300) return false;
 
@@ -269,8 +225,6 @@ class ApiService {
   static Map<String, dynamic> _json(http.Response res) {
     final body = res.body.isEmpty ? '{}' : res.body;
     final data = jsonDecode(body) as Map<String, dynamic>;
-    // ignore: avoid_print
-    print('[API ${res.request?.url}] ${res.statusCode} => $data');
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw ApiException(
         message: data['message']?.toString() ?? 'Request failed',
@@ -284,8 +238,6 @@ class ApiService {
   static dynamic _jsonAny(http.Response res) {
     final body = res.body.isEmpty ? 'null' : res.body;
     final data = jsonDecode(body);
-    // ignore: avoid_print
-    print('[API ${res.request?.url}] ${res.statusCode} => $data');
     if (res.statusCode < 200 || res.statusCode >= 300) {
       String msg = 'Request failed';
       if (data is Map<String, dynamic>) {

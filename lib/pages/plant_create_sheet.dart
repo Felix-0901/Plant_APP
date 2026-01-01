@@ -41,7 +41,7 @@ class _PlantCreateSheetState extends State<PlantCreateSheet> {
     setState(() => _loading = true);
     try {
       final today = ymd(DateTime.now()); // YYYYMMDD
-      final data = await ApiService.createPlant(
+      await ApiService.createPlant(
         plantVariety: _variety.text.trim(),
         plantName: _name.text.trim(),
         plantState: _state,
@@ -49,8 +49,6 @@ class _PlantCreateSheetState extends State<PlantCreateSheet> {
         email: email,
       );
 
-      // ignore: avoid_print
-      print('Create plant => $data');
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (e) {
@@ -140,7 +138,7 @@ class _PlantCreateSheetState extends State<PlantCreateSheet> {
 
                 // Plant state
                 DropdownButtonFormField<String>(
-                  value: _state,
+                  initialValue: _state,
                   onChanged: (v) => setState(() => _state = v ?? _state),
                   items: const [
                     DropdownMenuItem(value: 'seedling', child: Text('Seedling')),
