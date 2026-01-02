@@ -1,19 +1,14 @@
 // lib/pages/plant_page.dart
 import 'package:flutter/material.dart';
-
+import '../config/constants.dart';
 import '../services/api_service.dart';
 import '../utils/tools.dart';
-import '../config/constants.dart';
 
 class PlantPage extends StatefulWidget {
   final Map<String, dynamic> plant;
   final String email;
 
-  const PlantPage({
-    super.key,
-    required this.plant,
-    required this.email,
-  });
+  const PlantPage({super.key, required this.plant, required this.email});
 
   @override
   State<PlantPage> createState() => _PlantPageState();
@@ -23,7 +18,7 @@ class _PlantPageState extends State<PlantPage> {
   bool _initDialogShown = false;
   bool _busy = false;
 
-  late Map<String, dynamic> _plant; // ✅ current plant data (will refresh from server)
+  late Map<String, dynamic> _plant;
 
   final TextEditingController _todayStateCtrl = TextEditingController();
   DateTime? _lastWateringDateTime;
@@ -46,8 +41,6 @@ class _PlantPageState extends State<PlantPage> {
   }
 
   String get _uuid => (_plant['uuid'] ?? '').toString();
-
-
 
   bool _needsInitializationToday() {
     final initStr = (_plant['initialization'] ?? '').toString();
@@ -78,9 +71,6 @@ class _PlantPageState extends State<PlantPage> {
     return '$y$m$d$hh$mm$ss';
   }
 
-  // -----------------------------
-  // Task parsing (robust)
-  // -----------------------------
   Map<String, dynamic>? _taskMap() {
     final t = _plant['task'];
     if (t == null) return null;
@@ -118,9 +108,6 @@ class _PlantPageState extends State<PlantPage> {
     return fallbackKey;
   }
 
-  // -----------------------------
-  // Refresh plant from server (fetch all -> find by uuid)
-  // -----------------------------
   Future<void> _refreshPlantFromServer() async {
     final plants = await ApiService.getPlantInfo(email: widget.email);
 
@@ -133,7 +120,11 @@ class _PlantPageState extends State<PlantPage> {
     }
 
     if (found == null) {
-      await showAlert(context, 'Plant not found after refresh.', title: 'Error');
+      await showAlert(
+        context,
+        'Plant not found after refresh.',
+        title: 'Error',
+      );
       return;
     }
 
@@ -143,9 +134,6 @@ class _PlantPageState extends State<PlantPage> {
     });
   }
 
-  // -----------------------------
-  // Busy overlay
-  // -----------------------------
   Future<T?> _runBusy<T>(Future<T?> Function() job) async {
     if (_busy) return null;
     setState(() => _busy = true);
@@ -156,9 +144,6 @@ class _PlantPageState extends State<PlantPage> {
     }
   }
 
-  // -----------------------------
-  // Initialization flow (same as before)
-  // -----------------------------
   Future<void> _maybeForceInitialize() async {
     if (_initDialogShown) return;
 
@@ -244,13 +229,8 @@ class _PlantPageState extends State<PlantPage> {
 
                 if (ok == true) {
                   Navigator.of(ctx).pop(true);
-
-                  // 5 seconds overlay spinner (as your spec)
                   await _showBlockingSpinner5s();
-
                   if (!mounted) return;
-
-                  // refresh plant data in this page
                   await _runBusy<void>(() async {
                     await _refreshPlantFromServer();
                     return null;
@@ -276,9 +256,10 @@ class _PlantPageState extends State<PlantPage> {
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black54,
-      builder: (_) => const Center(
-        child: CircularProgressIndicator(color: Colors.white),
-      ),
+      builder:
+          (_) => const Center(
+            child: CircularProgressIndicator(color: Colors.white),
+          ),
     );
 
     await Future.delayed(const Duration(seconds: 5));
@@ -286,9 +267,6 @@ class _PlantPageState extends State<PlantPage> {
     if (mounted) Navigator.of(context).pop();
   }
 
-  // -----------------------------
-  // ✅ NEW: Task completion flow
-  // -----------------------------
   Future<void> _completeTask(String taskKey) async {
     final tasks = _taskMap();
     if (tasks == null || tasks.isEmpty) {
@@ -301,11 +279,14 @@ class _PlantPageState extends State<PlantPage> {
 
     final alreadyDone = _taskDone(raw);
     if (alreadyDone) {
-      await showAlert(context, 'This task is already completed.', title: 'Tasks');
+      await showAlert(
+        context,
+        'This task is already completed.',
+        title: 'Tasks',
+      );
       return;
     }
 
-    // ✅ 1) 先建立 updated task（只改被點的那個 state=true）
     final updated = <String, dynamic>{};
     for (final entry in tasks.entries) {
       final k = entry.key;
@@ -322,13 +303,11 @@ class _PlantPageState extends State<PlantPage> {
       }
     }
 
-    // ✅ 2) 先讓 UI 立刻變完成（本地先改）
     setState(() {
       _plant['task'] = updated;
     });
 
     await _runBusy<void>(() async {
-      // ✅ 3) 上傳
       final ok = await ApiService.updatePlantTask(
         uuid: _uuid,
         email: widget.email,
@@ -336,22 +315,16 @@ class _PlantPageState extends State<PlantPage> {
       );
 
       if (!ok) {
-        // ❗失敗就回復 UI（再拉一次伺服器狀態最保險）
         await _refreshPlantFromServer();
         await showAlert(context, 'Failed to update task.', title: 'Tasks');
         return null;
       }
 
-      // ✅ 4) 成功後：再跟伺服器要所有植物資料 → 找 uuid → 更新此頁
       await _refreshPlantFromServer();
       return null;
     });
   }
 
-
-  // -----------------------------
-  // UI
-  // -----------------------------
   @override
   Widget build(BuildContext context) {
     final plantName = (_plant['plant_variety'] ?? '').toString();
@@ -363,158 +336,63 @@ class _PlantPageState extends State<PlantPage> {
     final tasks = _taskMap();
 
     final caredToday = !_needsInitializationToday();
-    final dotColor = caredToday ? Colors.green : Colors.red;
 
     return Stack(
       children: [
         Scaffold(
-          appBar: AppBar(
-            backgroundColor: Colors.white,
-            elevation: 0,
-            centerTitle: true,
-            title: Text(
-              nickname.isEmpty ? 'Plant' : nickname,
-              style: const TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-          ),
-          body: ListView(
-            padding: const EdgeInsets.all(20),
+          body: Stack(
             children: [
-              // Info card
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.black12),
-                  color: Colors.white,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 10,
-                          height: 10,
-                          margin: const EdgeInsets.only(right: 8),
-                          decoration:
-                              BoxDecoration(color: dotColor, shape: BoxShape.circle),
-                        ),
-                        Expanded(
-                          child: Text(
-                            plantName.isEmpty ? '-' : plantName,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.black,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
+              // 背景裝飾
+              Positioned(
+                top: -60,
+                right: -40,
+                child: Container(
+                  width: 180,
+                  height: 180,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        AppColors.primaryYellow.withAlpha(77),
+                        AppColors.primaryYellow.withAlpha(0),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    _InfoRow(label: 'Plant name', value: plantName),
-                    _InfoRow(label: 'Plant nickname', value: nickname),
-                    _InfoRow(label: 'Care start date', value: setupTime),
-                    _InfoRow(label: 'Care days', value: '$careDays days'),
-                    _InfoRow(label: 'Status', value: status),
-                    _InfoRow(label: 'Initialized', value: initTime),
-                  ],
+                  ),
                 ),
               ),
 
-              const SizedBox(height: 12),
-
-              // Tasks card
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.black12),
-                  color: Colors.white,
-                ),
+              SafeArea(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Tasks',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.deepYellow,
+                    // Header
+                    _buildHeader(nickname),
+
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                        children: [
+                          // 狀態卡片
+                          _buildStatusCard(caredToday, careDays),
+
+                          const SizedBox(height: 16),
+
+                          // 資訊卡片
+                          _buildInfoCard(
+                            plantName: plantName,
+                            nickname: nickname,
+                            setupTime: setupTime,
+                            initTime: initTime,
+                            status: status,
+                            careDays: careDays,
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // 任務卡片
+                          _buildTasksCard(tasks),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 10),
-
-                    if (tasks == null || tasks.isEmpty) ...[
-                      const Text(
-                        'No tasks yet.',
-                        style: TextStyle(fontSize: 13, color: Colors.black54),
-                      ),
-                    ] else ...[
-                      ...tasks.entries.map((e) {
-                        final key = e.key;
-                        final v = e.value;
-
-                        final done = _taskDone(v);
-                        final content = _taskContent(v, key);
-
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(10),
-                              onTap: done ? null : () => _completeTask(key),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 10,
-                                  horizontal: 10,
-                                ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Icon(
-                                      done
-                                          ? Icons.check_circle
-                                          : Icons.radio_button_unchecked,
-                                      size: 18,
-                                      color: done ? Colors.green : Colors.black26,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        content,
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: done ? Colors.black38 : Colors.black,
-                                          decoration: done
-                                              ? TextDecoration.lineThrough
-                                              : TextDecoration.none,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    if (!done)
-                                      const Icon(
-                                        Icons.chevron_right,
-                                        size: 18,
-                                        color: Colors.black26,
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-                    ],
                   ],
                 ),
               ),
@@ -522,7 +400,7 @@ class _PlantPageState extends State<PlantPage> {
           ),
         ),
 
-        // ✅ Busy overlay (during update task / refresh)
+        // Busy overlay
         if (_busy)
           Positioned.fill(
             child: Container(
@@ -535,16 +413,448 @@ class _PlantPageState extends State<PlantPage> {
       ],
     );
   }
+
+  Widget _buildHeader(String nickname) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 8, 20, 12),
+      child: Row(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.cardBg,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: AppShadows.soft,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+              onPressed: () => Navigator.of(context).pop(),
+              color: AppColors.textSecondary,
+            ),
+          ),
+          Expanded(
+            child: Center(
+              child: Text(
+                nickname.isEmpty ? 'Plant' : nickname,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          const SizedBox(width: 48),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusCard(bool caredToday, int careDays) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: AppColors.yellowGradient,
+        borderRadius: AppRadius.cardRadius,
+        boxShadow: AppShadows.button,
+      ),
+      child: Row(
+        children: [
+          // 狀態指示
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha(77),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              caredToday
+                  ? Icons.check_circle_rounded
+                  : Icons.access_time_rounded,
+              color: Colors.white,
+              size: 32,
+            ),
+          ),
+          const SizedBox(width: 16),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  caredToday ? 'Cared Today' : 'Needs Care',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  caredToday
+                      ? 'Your plant is happy!'
+                      : 'Please initialize today',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.white.withAlpha(230),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 天數
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha(64),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '$careDays days',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoCard({
+    required String plantName,
+    required String nickname,
+    required String setupTime,
+    required String initTime,
+    required String status,
+    required int careDays,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.cardBg,
+        borderRadius: AppRadius.cardRadius,
+        border: Border.all(color: AppColors.borderLight),
+        boxShadow: AppShadows.card,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppColors.divider)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.lightYellow,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.info_outline_rounded,
+                    color: AppColors.deepYellow,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Plant Information',
+                  style: AppText.sectionTitle.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 內容
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                _InfoRow(
+                  icon: Icons.local_florist_outlined,
+                  label: 'Variety',
+                  value: plantName,
+                ),
+                _InfoRow(
+                  icon: Icons.badge_outlined,
+                  label: 'Nickname',
+                  value: nickname,
+                ),
+                _InfoRow(
+                  icon: Icons.calendar_today_outlined,
+                  label: 'Start Date',
+                  value: setupTime,
+                ),
+                _InfoRow(
+                  icon: Icons.spa_outlined,
+                  label: 'Status',
+                  value: status,
+                ),
+                _InfoRow(
+                  icon: Icons.update_rounded,
+                  label: 'Last Init',
+                  value: initTime,
+                  isLast: true,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTasksCard(Map<String, dynamic>? tasks) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.cardBg,
+        borderRadius: AppRadius.cardRadius,
+        border: Border.all(color: AppColors.borderLight),
+        boxShadow: AppShadows.card,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppColors.divider)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.lightYellow,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.task_alt_rounded,
+                    color: AppColors.deepYellow,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Today\'s Tasks',
+                  style: AppText.sectionTitle.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const Spacer(),
+                if (tasks != null && tasks.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.lightYellow,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${tasks.values.where((v) => _taskDone(v)).length}/${tasks.length}',
+                      style: const TextStyle(
+                        color: AppColors.deepYellow,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          // 內容
+          if (tasks == null || tasks.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.inbox_outlined,
+                    color: AppColors.textSecondary,
+                    size: 20,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'No tasks yet.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children:
+                    tasks.entries.map((e) {
+                      final key = e.key;
+                      final v = e.value;
+                      final done = _taskDone(v);
+                      final content = _taskContent(v, key);
+
+                      return _TaskItem(
+                        content: content,
+                        done: done,
+                        onTap: done ? null : () => _completeTask(key),
+                      );
+                    }).toList(),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool isLast;
+
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.isLast = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
+      margin: EdgeInsets.only(bottom: isLast ? 0 : 12),
+      decoration: BoxDecoration(
+        border:
+            isLast
+                ? null
+                : const Border(bottom: BorderSide(color: AppColors.divider)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: AppColors.textSecondary),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value.isEmpty ? '-' : value,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TaskItem extends StatelessWidget {
+  final String content;
+  final bool done;
+  final VoidCallback? onTap;
+
+  const _TaskItem({required this.content, required this.done, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: done ? AppColors.successLight : AppColors.surfaceBg,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: done ? AppColors.success : Colors.transparent,
+                    border:
+                        done
+                            ? null
+                            : Border.all(color: AppColors.border, width: 2),
+                  ),
+                  child:
+                      done
+                          ? const Icon(
+                            Icons.check,
+                            size: 16,
+                            color: Colors.white,
+                          )
+                          : null,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    content,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color:
+                          done
+                              ? AppColors.textSecondary
+                              : AppColors.textPrimary,
+                      fontWeight: FontWeight.w500,
+                      decoration:
+                          done
+                              ? TextDecoration.lineThrough
+                              : TextDecoration.none,
+                    ),
+                  ),
+                ),
+                if (!done)
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.textHint,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _LastWateringPicker extends StatelessWidget {
   final DateTime? value;
   final ValueChanged<DateTime> onPick;
 
-  const _LastWateringPicker({
-    required this.value,
-    required this.onPick,
-  });
+  const _LastWateringPicker({required this.value, required this.onPick});
 
   Future<DateTime?> _pickDateTime(BuildContext context) async {
     final now = DateTime.now();
@@ -554,14 +864,37 @@ class _LastWateringPicker extends StatelessWidget {
       initialDate: value ?? now,
       firstDate: DateTime(now.year - 2),
       lastDate: DateTime(now.year + 2),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: AppColors.deepYellow,
+              onPrimary: AppColors.textPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (date == null) return null;
 
     final time = await showTimePicker(
       context: context,
-      initialTime: value != null
-          ? TimeOfDay(hour: value!.hour, minute: value!.minute)
-          : TimeOfDay.fromDateTime(now),
+      initialTime:
+          value != null
+              ? TimeOfDay(hour: value!.hour, minute: value!.minute)
+              : TimeOfDay.fromDateTime(now),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: AppColors.deepYellow,
+              onPrimary: AppColors.textPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (time == null) return null;
 
@@ -594,32 +927,6 @@ class _LastWateringPicker extends StatelessWidget {
             const Icon(Icons.calendar_today, size: 18),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _InfoRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 140,
-            child: Text(label, style: const TextStyle(color: Colors.black54)),
-          ),
-          Expanded(
-            child: Text(value.isEmpty ? '-' : value),
-          ),
-        ],
       ),
     );
   }

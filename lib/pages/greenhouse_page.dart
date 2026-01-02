@@ -1,11 +1,11 @@
 // lib/pages/greenhouse_page.dart
 import 'package:flutter/material.dart';
+import '../config/constants.dart';
 import '../services/api_service.dart';
 import '../utils/session.dart';
 import '../utils/tools.dart';
-import '../config/constants.dart';
 import 'plant_create_sheet.dart';
-import 'plant_page.dart'; // ✅ NEW
+import 'plant_page.dart';
 
 class GreenhousePage extends StatefulWidget {
   const GreenhousePage({super.key});
@@ -45,8 +45,6 @@ class _GreenhousePageState extends State<GreenhousePage> {
     }
   }
 
-
-
   bool _caredToday(String? initDateStr) {
     final d = parseYmd(initDateStr);
     if (d == null) return false;
@@ -58,7 +56,8 @@ class _GreenhousePageState extends State<GreenhousePage> {
     final setup = parseYmd(setupDateStr);
     if (setup == null) return '-';
     final today = todayDateOnly();
-    final diff = today.difference(DateTime(setup.year, setup.month, setup.day)).inDays;
+    final diff =
+        today.difference(DateTime(setup.year, setup.month, setup.day)).inDays;
     final days = (diff < 0 ? 0 : diff) + 1;
     return '$days days';
   }
@@ -68,9 +67,7 @@ class _GreenhousePageState extends State<GreenhousePage> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (_) => const PlantCreateSheet(),
     );
 
@@ -82,83 +79,210 @@ class _GreenhousePageState extends State<GreenhousePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          'Greenhouse',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
+      body: Stack(
+        children: [
+          // 背景裝飾
+          Positioned(
+            top: -80,
+            left: -60,
+            child: Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.primaryYellow.withAlpha(64),
+                    AppColors.primaryYellow.withAlpha(0),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadPlants,
-        child: _loaded
-            ? (_plants.isEmpty
-                ? const _EmptyState()
-                : ListView.builder(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(20),
-                    itemCount: _plants.length,
-                    itemBuilder: (context, i) {
-                      final p = _plants[i];
+          Positioned(
+            bottom: 100,
+            right: -40,
+            child: Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.deepYellow.withAlpha(51),
+                    AppColors.deepYellow.withAlpha(0),
+                  ],
+                ),
+              ),
+            ),
+          ),
 
-                      final name = (p['plant_name'] ?? '').toString();
-                      final variety = (p['plant_variety'] ?? '').toString();
-                      final state = (p['plant_state'] ?? '').toString();
-                      final setupTime = (p['setup_time'] ?? '').toString();
-                      final init = (p['initialization'] ?? '').toString();
+          // 主內容
+          SafeArea(
+            child: Column(
+              children: [
+                // Header
+                _buildHeader(),
 
-                      final cared = _caredToday(init);
-                      final daysText = _careDays(setupTime);
+                // 植物列表
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: _loadPlants,
+                    color: AppColors.deepYellow,
+                    child:
+                        _loaded
+                            ? (_plants.isEmpty
+                                ? const _EmptyState()
+                                : ListView.builder(
+                                  physics:
+                                      const AlwaysScrollableScrollPhysics(),
+                                  padding: const EdgeInsets.fromLTRB(
+                                    20,
+                                    8,
+                                    20,
+                                    100,
+                                  ),
+                                  itemCount: _plants.length,
+                                  itemBuilder: (context, i) {
+                                    final p = _plants[i];
 
-                      return _PlantCard(
-                        name: name,
-                        variety: variety,
-                        state: state,
-                        caredToday: cared,
-                        daysText: daysText,
-                        onTap: () async {
-                          final email = Session.email;
-                          if (email == null || email.isEmpty) {
-                            await showAlert(context, 'Please login again.', title: 'Session');
-                            return;
-                          }
+                                    final name =
+                                        (p['plant_name'] ?? '').toString();
+                                    final variety =
+                                        (p['plant_variety'] ?? '').toString();
+                                    final state =
+                                        (p['plant_state'] ?? '').toString();
+                                    final setupTime =
+                                        (p['setup_time'] ?? '').toString();
+                                    final init =
+                                        (p['initialization'] ?? '').toString();
 
-                          final shouldRefresh = await Navigator.push<bool>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => PlantPage(
-                                plant: p,
-                                email: email,
+                                    final cared = _caredToday(init);
+                                    final daysText = _careDays(setupTime);
+
+                                    return _PlantCard(
+                                      name: name,
+                                      variety: variety,
+                                      state: state,
+                                      caredToday: cared,
+                                      daysText: daysText,
+                                      onTap: () async {
+                                        final email = Session.email;
+                                        if (email == null || email.isEmpty) {
+                                          await showAlert(
+                                            context,
+                                            'Please login again.',
+                                            title: 'Session',
+                                          );
+                                          return;
+                                        }
+
+                                        final shouldRefresh =
+                                            await Navigator.push<bool>(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder:
+                                                    (_) => PlantPage(
+                                                      plant: p,
+                                                      email: email,
+                                                    ),
+                                              ),
+                                            );
+
+                                        if (shouldRefresh == true) {
+                                          await _loadPlants();
+                                        }
+                                      },
+                                    );
+                                  },
+                                ))
+                            : Center(
+                              child: CircularProgressIndicator(
+                                color: AppColors.deepYellow,
                               ),
                             ),
-                          );
-
-                          if (shouldRefresh == true) {
-                            await _loadPlants();
-                          }
-                        },
-                      );
-                    },
-                  ))
-            : ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(20),
-                children: const [
-                  SizedBox(height: 160),
-                  Center(child: CircularProgressIndicator()),
-                  SizedBox(height: 160),
-                ],
-              ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _openCreate,
-        child: const Icon(Icons.add),
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          gradient: AppColors.yellowGradient,
+          shape: BoxShape.circle,
+          boxShadow: AppShadows.button,
+        ),
+        child: FloatingActionButton(
+          onPressed: _openCreate,
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: const Icon(Icons.add_rounded, size: 28),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 8, 20, 12),
+      child: Row(
+        children: [
+          // 返回按鈕
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.cardBg,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: AppShadows.soft,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+              onPressed: () => Navigator.of(context).pop(),
+              color: AppColors.textSecondary,
+            ),
+          ),
+
+          const Expanded(
+            child: Center(
+              child: Text(
+                'Greenhouse',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+          ),
+
+          // 植物數量
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.lightYellow,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.eco_rounded,
+                  size: 16,
+                  color: AppColors.deepYellow,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${_plants.length}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.deepYellow,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -175,13 +299,40 @@ class _EmptyState extends StatelessWidget {
           physics: const AlwaysScrollableScrollPhysics(),
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: const Center(
-              child: Text(
-                'No plants',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.black54,
-                ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: AppColors.lightYellow,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.park_outlined,
+                      size: 48,
+                      color: AppColors.deepYellow,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'No plants yet',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Tap + to add your first plant',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -210,81 +361,140 @@ class _PlantCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dotColor = caredToday ? Colors.green : Colors.red;
-
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.cardBg,
+        borderRadius: AppRadius.cardRadius,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppRadius.cardRadius,
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.black12),
+              borderRadius: AppRadius.cardRadius,
+              border: Border.all(color: AppColors.borderLight),
+              boxShadow: AppShadows.card,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
+                    // 狀態指示器
                     Container(
-                      width: 10,
-                      height: 10,
-                      margin: const EdgeInsets.only(right: 8),
-                      decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: caredToday ? AppColors.success : AppColors.error,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: (caredToday
+                                    ? AppColors.success
+                                    : AppColors.error)
+                                .withAlpha(102),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 12),
+
+                    // 名稱
                     Expanded(
                       child: Text(
                         name.isEmpty ? '-' : name,
                         style: const TextStyle(
-                          fontSize: 20,
+                          fontSize: 18,
                           fontWeight: FontWeight.w700,
-                          color: Colors.black,
+                          color: AppColors.textPrimary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Text(
-                      daysText,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.deepYellow,
+
+                    // 天數
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: AppColors.yellowGradient,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        daysText,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+
+                const SizedBox(height: 12),
+
+                // 詳細資訊
                 Row(
                   children: [
-                    Expanded(
-                      child: Text(
-                        variety.isEmpty ? '-' : variety,
-                        style: const TextStyle(fontSize: 13, color: Colors.black54),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    _InfoTag(
+                      icon: Icons.local_florist_outlined,
+                      text: variety.isEmpty ? '-' : variety,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        state.isEmpty ? '-' : state,
-                        style: const TextStyle(fontSize: 13, color: Colors.black54),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.right,
-                      ),
+                    const SizedBox(width: 12),
+                    _InfoTag(
+                      icon: Icons.spa_outlined,
+                      text: state.isEmpty ? '-' : state,
                     ),
                   ],
                 ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoTag extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _InfoTag({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceBg,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: AppColors.textSecondary),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
       ),
     );

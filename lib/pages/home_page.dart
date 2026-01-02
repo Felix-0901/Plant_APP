@@ -1,10 +1,11 @@
 // lib/pages/home_page.dart
 import 'package:flutter/material.dart';
+import '../config/constants.dart';
 import '../services/api_service.dart';
 import '../utils/session.dart';
 import '../utils/tools.dart';
 import '../widgets/custom_button.dart';
-import '../utils/nav.dart'; // for shared routeObserver
+import '../utils/nav.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -82,6 +83,10 @@ class _HomePageState extends State<HomePage>
       final List<String> notCared = [];
       final List<String> tooLong = [];
 
+      // DEBUG: 輸出今天日期
+      debugPrint('🔍 DEBUG: today = $today');
+      debugPrint('🔍 DEBUG: plants count = ${plants.length}');
+
       for (final p in plants) {
         final name = (p['plant_name'] ?? '').toString().trim();
         if (name.isEmpty) continue;
@@ -89,21 +94,44 @@ class _HomePageState extends State<HomePage>
         final initStr = (p['initialization'] ?? '').toString();
         final initDate = parseYmd(initStr);
 
+        // DEBUG: 輸出每個植物的資料
+        debugPrint('🌱 Plant: $name');
+        debugPrint('   - initialization raw: "$initStr"');
+        debugPrint('   - initDate parsed: $initDate');
+
+        // 無法解析日期 → 視為從未初始化 → 需要照顧
         if (initDate == null) {
-          tooLong.add(name);
+          debugPrint('   → Added to notCared (null date)');
+          notCared.add(name);
           continue;
         }
 
         final initOnly = DateTime(initDate.year, initDate.month, initDate.day);
-        if (initOnly == today) continue;
+        debugPrint('   - initOnly: $initOnly');
 
+        // 今天已照顧 → 跳過
+        if (initOnly == today) {
+          debugPrint('   → Skipped (cared today)');
+          continue;
+        }
+
+        // 計算相差天數
         final diffDays = today.difference(initOnly).inDays;
+        debugPrint('   - diffDays: $diffDays');
+
+        // 超過 7 天沒照顧 → 加入 tooLong
         if (diffDays > 7) {
+          debugPrint('   → Added to tooLong');
           tooLong.add(name);
-        } else if (diffDays >= 1) {
+        } else {
+          debugPrint('   → Added to notCared');
+          // 1-7 天沒照顧 → 加入 notCared
           notCared.add(name);
         }
       }
+
+      debugPrint('📋 RESULT: notCared = $notCared');
+      debugPrint('📋 RESULT: tooLong = $tooLong');
 
       setState(() {
         _notCaredToday = notCared;
@@ -129,230 +157,417 @@ class _HomePageState extends State<HomePage>
     Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
   }
 
-  bool _onAnnouncementsScroll(ScrollNotification n) => false;
-  bool _onBottomListScroll(ScrollNotification n) => false;
-
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.logout, color: Colors.black),
-          onPressed: _onLogout,
-          tooltip: 'Log out',
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          'Plant',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
-      ),
-      body: Column(
+      body: Stack(
         children: [
-          // 公告區
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: Container(
-                height: 220,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.black12),
-                ),
-                child: _ann.isEmpty
-                    ? Center(
-                        child: Text(
-                          _annLoaded ? 'No announcements' : 'Loading...',
-                          style: const TextStyle(color: Colors.black54),
-                        ),
-                      )
-                    : NotificationListener<ScrollNotification>(
-                        onNotification: _onAnnouncementsScroll,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.all(12),
-                          itemCount: _ann.length,
-                          separatorBuilder: (_, __) =>
-                              const Divider(height: 16),
-                          itemBuilder: (context, i) {
-                            final m = _ann[i];
-                            final title = (m['title'] ?? '').toString();
-                            final date = (m['date'] ?? '').toString();
-                            final content = (m['content'] ?? '').toString();
-                            return ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(
-                                title,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black),
-                              ),
-                              subtitle: Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                  date,
-                                  style: const TextStyle(
-                                      fontSize: 12, color: Colors.black54),
-                                ),
-                              ),
-                              onTap: () => showAnnouncementDialog(
-                                context,
-                                title: title,
-                                date: date,
-                                content: content,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
-            child: Divider(height: 24),
-          ),
-
-          // 前往溫室按鈕
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: CustomButton(
-                text: 'View Greenhouse',
-                onPressed: () => Navigator.pushNamed(context, '/greenhouse'),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // 下半部：整體可捲動
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _loadAll,
-              child: NotificationListener<ScrollNotification>(
-                onNotification: _onBottomListScroll,
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                  children: [
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 560),
-                      child: _AutoHeightSection(
-                        title: 'Not cared today',
-                        names: _notCaredToday,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 560),
-                      child: _AutoHeightSection(
-                        title: 'Not cared for too long',
-                        names: _notCaredTooLong,
-                      ),
-                    ),
+          // 背景裝飾
+          Positioned(
+            top: -60,
+            right: -40,
+            child: Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.primaryYellow.withAlpha(77),
+                    AppColors.primaryYellow.withAlpha(0),
                   ],
                 ),
               ),
             ),
           ),
+
+          // 主內容
+          SafeArea(
+            child: Column(
+              children: [
+                // 自訂 Header
+                _buildHeader(),
+
+                // 內容
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: _loadAll,
+                    color: AppColors.deepYellow,
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                      children: [
+                        // 公告區
+                        _buildAnnouncementsSection(),
+
+                        const SizedBox(height: 20),
+
+                        // 前往溫室按鈕
+                        CustomButton(
+                          text: 'View Greenhouse',
+                          icon: Icons.park_outlined,
+                          onPressed:
+                              () => Navigator.pushNamed(context, '/greenhouse'),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // 植物照護區塊
+                        _CareSection(
+                          title: 'Not cared today',
+                          icon: Icons.access_time_rounded,
+                          iconColor: AppColors.warning,
+                          bgColor: AppColors.warningLight,
+                          names: _notCaredToday,
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        _CareSection(
+                          title: 'Not cared for too long',
+                          icon: Icons.warning_amber_rounded,
+                          iconColor: AppColors.error,
+                          bgColor: AppColors.errorLight,
+                          names: _notCaredTooLong,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+      child: Row(
+        children: [
+          // 登出按鈕
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.cardBg,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: AppShadows.soft,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.logout_rounded, size: 22),
+              onPressed: _onLogout,
+              tooltip: 'Log out',
+              color: AppColors.textSecondary,
+            ),
+          ),
+
+          const Spacer(),
+
+          // 標題
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: AppColors.yellowGradient,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.eco_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Plant',
+                style: AppText.title.copyWith(
+                  fontSize: 24,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+
+          const Spacer(),
+
+          // 佔位保持居中
+          const SizedBox(width: 48),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnnouncementsSection() {
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 200),
+      decoration: BoxDecoration(
+        color: AppColors.cardBg,
+        borderRadius: AppRadius.cardRadius,
+        border: Border.all(color: AppColors.borderLight),
+        boxShadow: AppShadows.card,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppColors.divider)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.lightYellow,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.campaign_rounded,
+                    color: AppColors.deepYellow,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Announcements',
+                  style: AppText.sectionTitle.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 內容
+          Expanded(
+            child:
+                _ann.isEmpty
+                    ? Center(
+                      child: Text(
+                        _annLoaded ? 'No announcements' : 'Loading...',
+                        style: const TextStyle(color: AppColors.textSecondary),
+                      ),
+                    )
+                    : ListView.separated(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      itemCount: _ann.length,
+                      separatorBuilder:
+                          (_, __) => const Divider(
+                            height: 20,
+                            color: AppColors.divider,
+                          ),
+                      itemBuilder: (context, i) {
+                        final m = _ann[i];
+                        final title = (m['title'] ?? '').toString();
+                        final date = (m['date'] ?? '').toString();
+                        final content = (m['content'] ?? '').toString();
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap:
+                              () => showAnnouncementDialog(
+                                context,
+                                title: title,
+                                date: date,
+                                content: content,
+                              ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        title,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 15,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        date,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: AppColors.textHint,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+          ),
         ],
       ),
     );
   }
 }
 
-/// 自動高度區塊（不可內捲動）
-class _AutoHeightSection extends StatelessWidget {
+/// 照護區塊
+class _CareSection extends StatelessWidget {
   final String title;
+  final IconData icon;
+  final Color iconColor;
+  final Color bgColor;
   final List<String> names;
 
-  const _AutoHeightSection({
+  const _CareSection({
     required this.title,
+    required this.icon,
+    required this.iconColor,
+    required this.bgColor,
     required this.names,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
-                color: Colors.black,
-              ),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.cardBg,
+        borderRadius: AppRadius.cardRadius,
+        border: Border.all(color: AppColors.borderLight),
+        boxShadow: AppShadows.card,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppColors.divider)),
             ),
-            const SizedBox(height: 8),
-            if (names.isEmpty)
-              const Text('None', style: TextStyle(color: Colors.black54))
-            else
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, color: iconColor, size: 18),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  title,
+                  style: AppText.sectionTitle.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${names.length}',
+                    style: TextStyle(
+                      color: iconColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 內容
+          if (names.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Row(
                 children: [
-                  for (int i = 0; i < names.length; i++) ...[
-                    _PlantTile(name: names[i]),
-                    if (i != names.length - 1) const SizedBox(height: 8),
-                  ]
+                  Icon(
+                    Icons.check_circle_outline,
+                    color: AppColors.success,
+                    size: 20,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'All plants are well cared!',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
                 ],
               ),
-          ],
-        ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: names.map((name) => _PlantChip(name: name)).toList(),
+              ),
+            ),
+        ],
       ),
     );
   }
 }
 
-/// 單一植物子區塊
-class _PlantTile extends StatelessWidget {
+/// 植物標籤
+class _PlantChip extends StatelessWidget {
   final String name;
-  const _PlantTile({required this.name});
+  const _PlantChip({required this.name});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity, // 撐滿寬度
-      alignment: Alignment.centerLeft, // 靠左
-      padding: const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 14,
-      ),
-      constraints: const BoxConstraints(minHeight: 50), // 比較高
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surfaceBg,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.black12),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F000000),
-            blurRadius: 6,
-            offset: Offset(0, 2),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: AppColors.warning,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            name,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w500,
+              fontSize: 14,
+            ),
           ),
         ],
-      ),
-      child: Text(
-        name,
-        textAlign: TextAlign.left,
-        style: const TextStyle(color: Colors.black),
       ),
     );
   }

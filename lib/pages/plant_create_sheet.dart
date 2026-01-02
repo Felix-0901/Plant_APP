@@ -1,9 +1,11 @@
 // lib/pages/plant_create_sheet.dart
 import 'package:flutter/material.dart';
+import '../config/constants.dart';
 import '../services/api_service.dart';
 import '../utils/session.dart';
 import '../utils/tools.dart';
-import 'package:url_launcher/url_launcher.dart'; // ← 用於開啟外部連結
+import '../widgets/custom_button.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class PlantCreateSheet extends StatefulWidget {
   const PlantCreateSheet({super.key});
@@ -16,11 +18,12 @@ class _PlantCreateSheetState extends State<PlantCreateSheet> {
   final _form = GlobalKey<FormState>();
   final _variety = TextEditingController();
   final _name = TextEditingController();
-  String _state = 'seedling'; // 預設值
+  String _state = 'seedling';
   bool _loading = false;
 
-  static final Uri _plantNetUrl =
-      Uri.parse('https://identify.plantnet.org/zh-tw');
+  static final Uri _plantNetUrl = Uri.parse(
+    'https://identify.plantnet.org/zh-tw',
+  );
 
   @override
   void dispose() {
@@ -40,7 +43,7 @@ class _PlantCreateSheetState extends State<PlantCreateSheet> {
 
     setState(() => _loading = true);
     try {
-      final today = ymd(DateTime.now()); // YYYYMMDD
+      final today = ymd(DateTime.now());
       await ApiService.createPlant(
         plantVariety: _variety.text.trim(),
         plantName: _name.text.trim(),
@@ -59,11 +62,14 @@ class _PlantCreateSheetState extends State<PlantCreateSheet> {
   }
 
   Future<void> _openPlantNet() async {
-    final ok = await launchUrl(_plantNetUrl, mode: LaunchMode.externalApplication);
+    final ok = await launchUrl(
+      _plantNetUrl,
+      mode: LaunchMode.externalApplication,
+    );
     if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to open link')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to open link')));
     }
   }
 
@@ -71,110 +77,225 @@ class _PlantCreateSheetState extends State<PlantCreateSheet> {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return Padding(
-      padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: bottomInset + 20),
-      child: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          child: Form(
-            key: _form,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Create Plant',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 20),
-
-                // Plant variety
-                TextFormField(
-                  controller: _variety,
-                  decoration: const InputDecoration(
-                    labelText: 'Plant variety',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-                  ),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Please enter variety' : null,
-                ),
-
-                // 與上方輸入框保留一點距離
-                const SizedBox(height: 4),
-
-                // 🔗 小小文字按鈕：右下角
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: _openPlantNet,
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: const Size(0, 0),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: const Text(
-                      'Identify plant by photo',
-                      style: TextStyle(
-                        fontSize: 12, // 小字
-                        color: Colors.blueGrey, // 淡灰藍色
-                        decoration: TextDecoration.none, // ❌ 移除底線
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.cardBg,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 12,
+          bottom: bottomInset + 24,
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            child: Form(
+              key: _form,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 拖拉指示器
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 20),
+                      decoration: BoxDecoration(
+                        color: AppColors.border,
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
                   ),
-                ),
 
-                const SizedBox(height: 16),
-
-                // Plant name
-                TextFormField(
-                  controller: _name,
-                  decoration: const InputDecoration(
-                    labelText: 'Plant name',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                  // 標題
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          gradient: AppColors.yellowGradient,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.add_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Add New Plant',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Start tracking your plant',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Please enter name' : null,
-                ),
-                const SizedBox(height: 16),
 
-                // Plant state
-                DropdownButtonFormField<String>(
-                  initialValue: _state,
-                  onChanged: (v) => setState(() => _state = v ?? _state),
-                  items: const [
-                    DropdownMenuItem(value: 'seedling', child: Text('Seedling')),
-                    DropdownMenuItem(value: 'growing', child: Text('Growing')),
-                    DropdownMenuItem(value: 'stable', child: Text('Stable')),
-                  ],
-                  decoration: const InputDecoration(
-                    labelText: 'Plant state',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-                  ),
-                  style: const TextStyle(fontSize: 16, color: Colors.black),
-                  dropdownColor: Colors.white,
-                  isDense: true,
-                ),
-                const SizedBox(height: 20),
+                  const SizedBox(height: 24),
 
-                // Submit
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: _loading ? null : _submit,
-                    child: _loading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Text('Submit'),
+                  // Plant variety
+                  _buildInputLabel(
+                    'Plant Variety',
+                    Icons.local_florist_outlined,
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _variety,
+                    decoration: InputDecoration(
+                      hintText: 'e.g., Monstera Deliciosa',
+                      hintStyle: const TextStyle(color: AppColors.textHint),
+                    ),
+                    validator:
+                        (v) =>
+                            (v == null || v.trim().isEmpty)
+                                ? 'Please enter variety'
+                                : null,
+                  ),
+
+                  // PlantNet 連結
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: _openPlantNet,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      icon: const Icon(
+                        Icons.camera_alt_outlined,
+                        size: 16,
+                        color: AppColors.deepYellow,
+                      ),
+                      label: const Text(
+                        'Identify by photo',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.deepYellow,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Plant name
+                  _buildInputLabel('Plant Nickname', Icons.badge_outlined),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _name,
+                    decoration: InputDecoration(
+                      hintText: 'Give your plant a name',
+                      hintStyle: const TextStyle(color: AppColors.textHint),
+                    ),
+                    validator:
+                        (v) =>
+                            (v == null || v.trim().isEmpty)
+                                ? 'Please enter name'
+                                : null,
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Plant state
+                  _buildInputLabel('Growth Stage', Icons.spa_outlined),
+                  const SizedBox(height: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.cardBg,
+                      borderRadius: AppRadius.inputRadius,
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _state,
+                      onChanged: (v) => setState(() => _state = v ?? _state),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'seedling',
+                          child: Text('🌱 Seedling'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'growing',
+                          child: Text('🌿 Growing'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'stable',
+                          child: Text('🌳 Stable'),
+                        ),
+                      ],
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(
+                          vertical: 14,
+                          horizontal: 16,
+                        ),
+                      ),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: AppColors.textPrimary,
+                      ),
+                      dropdownColor: AppColors.cardBg,
+                      isDense: true,
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                    ),
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // Submit
+                  CustomButton(
+                    text: 'Add Plant',
+                    icon: Icons.eco_rounded,
+                    onPressed: _submit,
+                    loading: _loading,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildInputLabel(String label, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: AppColors.textSecondary),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
     );
   }
 }
