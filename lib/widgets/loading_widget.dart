@@ -45,6 +45,7 @@ class EmptyStateWidget extends StatelessWidget {
   final String title;
   final String? subtitle;
   final Widget? action;
+  final bool compact;
 
   const EmptyStateWidget({
     super.key,
@@ -52,47 +53,55 @@ class EmptyStateWidget extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.action,
+    this.compact = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: EdgeInsets.all(compact ? 16 : 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 100,
-              height: 100,
+              width: compact ? 60 : 100,
+              height: compact ? 60 : 100,
               decoration: BoxDecoration(
                 color: AppColors.lightYellow,
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: 50, color: AppColors.deepYellow),
+              child: Icon(
+                icon,
+                size: compact ? 30 : 50,
+                color: AppColors.deepYellow,
+              ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: compact ? 12 : 24),
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 18,
+              style: TextStyle(
+                fontSize: compact ? 15 : 18,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
               ),
               textAlign: TextAlign.center,
             ),
             if (subtitle != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Text(
                 subtitle!,
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 13,
                   color: AppColors.textSecondary,
                 ),
                 textAlign: TextAlign.center,
               ),
             ],
-            if (action != null) ...[const SizedBox(height: 24), action!],
+            if (action != null) ...[
+              SizedBox(height: compact ? 12 : 24),
+              action!,
+            ],
           ],
         ),
       ),

@@ -281,7 +281,7 @@ class _HomePageState extends State<HomePage>
 
   Widget _buildAnnouncementsSection() {
     return Container(
-      constraints: const BoxConstraints(maxHeight: 200),
+      constraints: const BoxConstraints(maxHeight: 280),
       decoration: BoxDecoration(
         color: AppColors.cardBg,
         borderRadius: AppRadius.cardRadius,
@@ -332,6 +332,7 @@ class _HomePageState extends State<HomePage>
                       icon: Icons.notifications_off_outlined,
                       title: 'No announcements',
                       subtitle: "You're all caught up!",
+                      compact: true,
                     )
                     : ListView.separated(
                       padding: const EdgeInsets.symmetric(
