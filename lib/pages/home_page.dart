@@ -83,10 +83,6 @@ class _HomePageState extends State<HomePage>
       final List<String> notCared = [];
       final List<String> tooLong = [];
 
-      // DEBUG: 輸出今天日期
-      debugPrint('🔍 DEBUG: today = $today');
-      debugPrint('🔍 DEBUG: plants count = ${plants.length}');
-
       for (final p in plants) {
         final name = (p['plant_name'] ?? '').toString().trim();
         if (name.isEmpty) continue;
@@ -94,42 +90,26 @@ class _HomePageState extends State<HomePage>
         final initStr = (p['initialization'] ?? '').toString();
         final initDate = parseYmd(initStr);
 
-        // DEBUG: 輸出每個植物的資料
-        debugPrint('🌱 Plant: $name');
-        debugPrint('   - initialization raw: "$initStr"');
-        debugPrint('   - initDate parsed: $initDate');
-
         // 無法解析日期 → 視為從未初始化 → 今天需要照顧
         if (initDate == null) {
-          debugPrint('   → Added to notCared (null date)');
           notCared.add(name);
           continue;
         }
 
         final initOnly = DateTime(initDate.year, initDate.month, initDate.day);
-        debugPrint('   - initOnly: $initOnly');
 
         // 今天已照顧 → 跳過
-        if (initOnly == today) {
-          debugPrint('   → Skipped (cared today)');
-          continue;
-        }
+        if (initOnly == today) continue;
 
         // 今天沒照顧 → 加入 notCared (不管天數)
-        debugPrint('   → Added to notCared (not cared today)');
         notCared.add(name);
 
         // 計算相差天數：超過 7 天 → 額外加入 tooLong
         final diffDays = today.difference(initOnly).inDays;
-        debugPrint('   - diffDays: $diffDays');
         if (diffDays > 7) {
-          debugPrint('   → Also added to tooLong');
           tooLong.add(name);
         }
       }
-
-      debugPrint('📋 RESULT: notCared = $notCared');
-      debugPrint('📋 RESULT: tooLong = $tooLong');
 
       setState(() {
         _notCaredToday = notCared;
