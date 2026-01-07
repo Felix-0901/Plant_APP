@@ -99,7 +99,7 @@ class _HomePageState extends State<HomePage>
         debugPrint('   - initialization raw: "$initStr"');
         debugPrint('   - initDate parsed: $initDate');
 
-        // 無法解析日期 → 視為從未初始化 → 需要照顧
+        // 無法解析日期 → 視為從未初始化 → 今天需要照顧
         if (initDate == null) {
           debugPrint('   → Added to notCared (null date)');
           notCared.add(name);
@@ -115,18 +115,16 @@ class _HomePageState extends State<HomePage>
           continue;
         }
 
-        // 計算相差天數
+        // 今天沒照顧 → 加入 notCared (不管天數)
+        debugPrint('   → Added to notCared (not cared today)');
+        notCared.add(name);
+
+        // 計算相差天數：超過 7 天 → 額外加入 tooLong
         final diffDays = today.difference(initOnly).inDays;
         debugPrint('   - diffDays: $diffDays');
-
-        // 超過 7 天沒照顧 → 加入 tooLong
         if (diffDays > 7) {
-          debugPrint('   → Added to tooLong');
+          debugPrint('   → Also added to tooLong');
           tooLong.add(name);
-        } else {
-          debugPrint('   → Added to notCared');
-          // 1-7 天沒照顧 → 加入 notCared
-          notCared.add(name);
         }
       }
 
