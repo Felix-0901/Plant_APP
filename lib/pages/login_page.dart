@@ -99,9 +99,12 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _onForgotPassword() async {
     final email = await _promptEmail();
     if (email == null) return;
+    if (!mounted) return;
 
     try {
       final res = await ApiService.forgotPassword(email: email);
+      if (!mounted) return;
+
       await showAlert(
         context,
         res['message']?.toString() ??
@@ -109,6 +112,7 @@ class _LoginPageState extends State<LoginPage> {
         title: 'Password Reset',
       );
     } catch (e) {
+      if (!mounted) return;
       await showAlert(context, e.toString(), title: 'Reset Failed');
     }
   }

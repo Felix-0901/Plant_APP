@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../utils/session.dart';
 import '../utils/tools.dart';
 import '../widgets/custom_button.dart';
+import '../widgets/loading_widget.dart';
 import '../utils/nav.dart';
 
 class HomePage extends StatefulWidget {
@@ -324,12 +325,13 @@ class _HomePageState extends State<HomePage>
           // 內容
           Expanded(
             child:
-                _ann.isEmpty
-                    ? Center(
-                      child: Text(
-                        _annLoaded ? 'No announcements' : 'Loading...',
-                        style: const TextStyle(color: AppColors.textSecondary),
-                      ),
+                !_annLoaded
+                    ? const LoadingWidget(message: 'Checking for updates...')
+                    : _ann.isEmpty
+                    ? const EmptyStateWidget(
+                      icon: Icons.notifications_off_outlined,
+                      title: 'No announcements',
+                      subtitle: "You're all caught up!",
                     )
                     : ListView.separated(
                       padding: const EdgeInsets.symmetric(
@@ -377,7 +379,7 @@ class _HomePageState extends State<HomePage>
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        date,
+                                        formatRelativeDate(date),
                                         style: const TextStyle(
                                           fontSize: 12,
                                           color: AppColors.textSecondary,
@@ -478,20 +480,41 @@ class _CareSection extends StatelessWidget {
           ),
 
           // 內容
+          // 內容
           if (names.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Row(
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+              child: Column(
                 children: [
-                  Icon(
-                    Icons.check_circle_outline,
-                    color: AppColors.success,
-                    size: 20,
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.successLight.withAlpha(128),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check_rounded,
+                      color: AppColors.success,
+                      size: 24,
+                    ),
                   ),
-                  SizedBox(width: 8),
-                  Text(
+                  const SizedBox(height: 12),
+                  const Text(
                     'All plants are well cared!',
-                    style: TextStyle(color: AppColors.textSecondary),
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Good job keeping them healthy',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
               ),

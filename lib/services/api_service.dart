@@ -1,19 +1,40 @@
 // lib/services/api_service.dart
 import 'dart:convert';
+import 'dart:io';
+import 'dart:async';
 import 'package:http/http.dart' as http;
 import '../config/constants.dart';
 
 class ApiService {
   // ---------- Base URL builders ----------
-  static Uri _u(String path) => Uri.parse('${AppConfig.baseUrl}$path');                // auth.php
-  static Uri _psw(String path) => Uri.parse('${AppConfig.pswBaseUrl}$path');          // psw_setting.php
-  static Uri _hp(String path) => Uri.parse('${AppConfig.homepageBaseUrl}$path');      // homepage_setting.php
-  static Uri _plant(String path) => Uri.parse('${AppConfig.plantBaseUrl}$path');      // plant_setting.php
+  static Uri _u(String path) =>
+      Uri.parse('${AppConfig.baseUrl}$path'); // auth.php
+  static Uri _psw(String path) =>
+      Uri.parse('${AppConfig.pswBaseUrl}$path'); // psw_setting.php
+  static Uri _hp(String path) =>
+      Uri.parse('${AppConfig.homepageBaseUrl}$path'); // homepage_setting.php
+  static Uri _plant(String path) =>
+      Uri.parse('${AppConfig.plantBaseUrl}$path'); // plant_setting.php
 
   // 重點：加上 charset，避免部分 PHP 環境解析問題
   static Map<String, String> get _jsonHeaders => {
-        'Content-Type': 'application/json; charset=utf-8',
-      };
+    'Content-Type': 'application/json; charset=utf-8',
+  };
+
+  // 統一的 POST 請求處理（包含超時和錯誤處理）
+  static Future<http.Response> _post(Uri url, {Object? body}) async {
+    try {
+      return await http
+          .post(url, headers: _jsonHeaders, body: body)
+          .timeout(const Duration(seconds: 15));
+    } on SocketException {
+      throw ApiException(message: 'No internet connection', code: 0);
+    } on TimeoutException {
+      throw ApiException(message: 'Request timed out', code: 408);
+    } catch (e) {
+      throw ApiException(message: 'Network error: $e', code: 0);
+    }
+  }
 
   // ======================================================
   //                      Auth
@@ -24,9 +45,8 @@ class ApiService {
     required String email,
     required String password,
   }) async {
-    final res = await http.post(
+    final res = await _post(
       _u('/login'),
-      headers: _jsonHeaders,
       body: jsonEncode({'email': email, 'password': password}),
     );
     return _json(res);
@@ -40,9 +60,8 @@ class ApiService {
     required String phone,
     required String birthday, // YYYYMMDD
   }) async {
-    final res = await http.post(
+    final res = await _post(
       _u('/register'),
-      headers: _jsonHeaders,
       body: jsonEncode({
         'name': name,
         'email': email,
@@ -58,9 +77,8 @@ class ApiService {
   static Future<Map<String, dynamic>> forgotPassword({
     required String email,
   }) async {
-    final res = await http.post(
+    final res = await _post(
       _psw('/found_psw'),
-      headers: _jsonHeaders,
       body: jsonEncode({'email': email}),
     );
     return _json(res);
@@ -72,9 +90,8 @@ class ApiService {
 
   /// 公告列表：POST /search_announcements（不需 body）
   static Future<List<Map<String, dynamic>>> searchAnnouncements() async {
-    final res = await http.post(
+    final res = await _post(
       _hp('/search_announcements'),
-      headers: _jsonHeaders,
       body: jsonEncode({}), // 後端不需要，但維持 JSON
     );
     final data = _jsonAny(res);
@@ -95,9 +112,8 @@ class ApiService {
   static Future<List<Map<String, dynamic>>> getPlantInfo({
     required String email,
   }) async {
-    final res = await http.post(
+    final res = await _post(
       _plant('/get_plant_info'),
-      headers: _jsonHeaders,
       body: jsonEncode({'email': email}),
     );
     final data = _jsonAny(res);
@@ -116,7 +132,7 @@ class ApiService {
     required String plantVariety,
     required String plantName,
     required String plantState, // seedling/growing/stable
-    required String setupTime,  // YYYYMMDD
+    required String setupTime, // YYYYMMDD
     required String email,
   }) async {
     final state = plantState.trim().toLowerCase();
@@ -130,11 +146,7 @@ class ApiService {
       'email': email.trim(),
     };
 
-    final res = await http.post(
-      url,
-      headers: _jsonHeaders,
-      body: jsonEncode(payload),
-    );
+    final res = await _post(url, body: jsonEncode(payload));
 
     dynamic data;
     try {
@@ -170,11 +182,7 @@ class ApiService {
       'last_watering_time': lastWateringTime,
     };
 
-    final res = await http.post(
-      url,
-      headers: _jsonHeaders,
-      body: jsonEncode(payload),
-    );
+    final res = await _post(url, body: jsonEncode(payload));
 
     return res.statusCode >= 200 && res.statusCode < 300;
   }
@@ -190,17 +198,9 @@ class ApiService {
     final url = _plant('/update_plant_task');
 
     // ✅ 後端多半期待 $task 是字串，所以這裡送 JSON 字串
-    final payload = {
-      'uuid': uuid,
-      'email': email,
-      'task': jsonEncode(task),
-    };
+    final payload = {'uuid': uuid, 'email': email, 'task': jsonEncode(task)};
 
-    final res = await http.post(
-      url,
-      headers: _jsonHeaders,
-      body: jsonEncode(payload),
-    );
+    final res = await _post(url, body: jsonEncode(payload));
 
     if (res.statusCode < 200 || res.statusCode >= 300) return false;
 
@@ -215,7 +215,6 @@ class ApiService {
 
     return true;
   }
-
 
   // ======================================================
   //                      Helpers
